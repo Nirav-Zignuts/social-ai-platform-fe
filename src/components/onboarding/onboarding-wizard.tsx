@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ArrowRight, Camera, Sparkles } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { useConnectInstagram } from "@/hooks/use-connect-instagram";
 import { isAtWorkspaceLimit } from "@/lib/plans";
@@ -12,16 +13,10 @@ import {
   getStepIndexFromStatus,
   ONBOARDING_STEPS,
 } from "@/lib/onboarding";
+import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { BusinessProfileForm } from "@/components/forms/business-profile-form";
 import {
   KnowledgeUpload,
@@ -29,10 +24,8 @@ import {
 } from "@/components/forms/knowledge-upload";
 import { AIConfigurationForm } from "@/components/forms/ai-configuration-form";
 import { WorkspaceSettingsForm } from "@/components/forms/workspace-settings-form";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { Camera } from "lucide-react";
 import { InstagramSetupGuide } from "@/components/instagram/instagram-setup-guide";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OnboardingWizardProps {
   workspaceId?: string;
@@ -46,6 +39,8 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState(workspaceId);
 
   const activeWorkspaceId = createdWorkspaceId ?? workspaceId;
+  const currentStepMeta = ONBOARDING_STEPS[step] ?? ONBOARDING_STEPS[0];
+  const StepIcon = currentStepMeta.icon;
 
   const { data: workspaceData, isLoading: workspaceLoading } = useQuery({
     queryKey: ["workspace", activeWorkspaceId],
@@ -97,14 +92,21 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
       toast.success("Workspace created");
     },
     onError: (e: Error) =>
-      toast.error(e instanceof ApiError ? e.message : e.message || "Failed to create workspace"),
+      toast.error(
+        e instanceof ApiError
+          ? e.message
+          : e.message || "Failed to create workspace",
+      ),
   });
 
   const profileMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof api.workspaces.upsertBusinessProfile>[1]) =>
-      api.workspaces.upsertBusinessProfile(activeWorkspaceId!, payload),
+    mutationFn: (
+      payload: Parameters<typeof api.workspaces.upsertBusinessProfile>[1],
+    ) => api.workspaces.upsertBusinessProfile(activeWorkspaceId!, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workspace", activeWorkspaceId] });
+      queryClient.invalidateQueries({
+        queryKey: ["workspace", activeWorkspaceId],
+      });
       setStep(2);
       toast.success("Business profile saved");
     },
@@ -113,15 +115,20 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   });
 
   const aiMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof api.workspaces.upsertAIConfiguration>[1]) =>
-      api.workspaces.upsertAIConfiguration(activeWorkspaceId!, payload),
+    mutationFn: (
+      payload: Parameters<typeof api.workspaces.upsertAIConfiguration>[1],
+    ) => api.workspaces.upsertAIConfiguration(activeWorkspaceId!, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workspace", activeWorkspaceId] });
+      queryClient.invalidateQueries({
+        queryKey: ["workspace", activeWorkspaceId],
+      });
       setStep(4);
       toast.success("AI configuration saved");
     },
     onError: (e: Error) =>
-      toast.error(e instanceof ApiError ? e.message : "Failed to save AI config"),
+      toast.error(
+        e instanceof ApiError ? e.message : "Failed to save AI config",
+      ),
   });
 
   const schedulingMutation = useMutation({
@@ -133,25 +140,27 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
       router.push("/dashboard");
     },
     onError: (e: Error) =>
-      toast.error(e instanceof ApiError ? e.message : "Failed to save settings"),
+      toast.error(
+        e instanceof ApiError ? e.message : "Failed to save settings",
+      ),
   });
 
   const connectInstagramMutation = useConnectInstagram(activeWorkspaceId ?? "");
 
   if (workspaceId && workspaceLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 w-full" />
+      <div className="mx-auto max-w-4xl space-y-4">
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <Skeleton className="h-80 w-full rounded-2xl" />
       </div>
     );
   }
 
   if (!workspaceId && workspacesListLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 w-full" />
+      <div className="mx-auto max-w-4xl space-y-4">
+        <Skeleton className="h-24 w-full rounded-2xl" />
+        <Skeleton className="h-80 w-full rounded-2xl" />
       </div>
     );
   }
@@ -171,168 +180,190 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-8 border-b border-border-subtle pb-6">
-        <h1 className="text-page-title">Workspace setup</h1>
-        <p className="mt-1 text-caption">
-          Configure your workspace for AI content generation
-        </p>
-      </div>
+    <div className="relative mx-auto max-w-4xl">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-8 h-48 opacity-80"
+        style={{
+          background:
+            "radial-gradient(60% 80% at 50% 0%, rgba(108,92,231,0.18), transparent 70%)",
+        }}
+      />
 
-      <div className="mb-8 flex gap-2 overflow-x-auto pb-1">
-        {ONBOARDING_STEPS.map((s, i) => (
-          <div
-            key={s.id}
-            className={cn(
-              "flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-caption transition-colors duration-150",
-              i === step
-                ? "bg-accent text-white"
-                : i < step
-                  ? "bg-bg-surface-hover text-text-primary"
-                  : "bg-bg-surface text-text-secondary",
-            )}
-          >
-            <span className="font-medium tabular-nums">{i + 1}</span>
-            <span className="hidden sm:inline">{s.title}</span>
-          </div>
-        ))}
-      </div>
-
-      {step === 0 && !workspaceId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{ONBOARDING_STEPS[0].title}</CardTitle>
-            <CardDescription>{ONBOARDING_STEPS[0].description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="workspace_name">Workspace Name</Label>
-              <Input
-                id="workspace_name"
-                value={workspaceName}
-                onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder="My Brand"
-                required
-              />
+      <div className="relative space-y-8">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-accent">
+              <Sparkles className="size-3.5" />
+              Workspace onboarding
             </div>
-            <Button
-              onClick={() => createWorkspaceMutation.mutate()}
-              disabled={!workspaceName.trim() || createWorkspaceMutation.isPending}
-            >
-              {createWorkspaceMutation.isPending ? "Creating..." : "Continue"}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 1 && activeWorkspaceId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{ONBOARDING_STEPS[1].title}</CardTitle>
-            <CardDescription>{ONBOARDING_STEPS[1].description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BusinessProfileForm
-              initialData={profileData?.business_profile}
-              onSubmit={async (data) => {
-                await profileMutation.mutateAsync(data);
-              }}
-              isSubmitting={profileMutation.isPending}
-              submitLabel="Continue"
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 2 && activeWorkspaceId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{ONBOARDING_STEPS[2].title}</CardTitle>
-            <CardDescription>{ONBOARDING_STEPS[2].description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <KnowledgeUpload workspaceId={activeWorkspaceId} />
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setStep(3)}
-                disabled={!hasIndexed}
-              >
-                Continue
-              </Button>
-              <Button variant="outline" onClick={() => setStep(3)}>
-                Skip for now
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 3 && activeWorkspaceId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{ONBOARDING_STEPS[3].title}</CardTitle>
-            <CardDescription>{ONBOARDING_STEPS[3].description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AIConfigurationForm
-              onSubmit={async (data) => {
-                await aiMutation.mutateAsync(data);
-              }}
-              isSubmitting={aiMutation.isPending}
-              submitLabel="Continue"
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 4 && activeWorkspaceId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{ONBOARDING_STEPS[4].title}</CardTitle>
-            <CardDescription>{ONBOARDING_STEPS[4].description}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              onClick={() => connectInstagramMutation.mutate()}
-              disabled={connectInstagramMutation.isPending}
-              className="gap-2"
-            >
-              <Camera className="h-4 w-4" />
-              {connectInstagramMutation.isPending
-                ? "Connecting..."
-                : "Connect Instagram"}
-            </Button>
-            <p className="text-caption">
-              You&apos;ll be redirected to Meta to authorize access, then
-              returned to workspace settings.
+            <h1 className="mt-4 text-page-title">Build your operating space</h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">
+              A short guided setup so AI already understands your brand before
+              the first draft.
             </p>
-            <InstagramSetupGuide defaultOpen />
-            <Button variant="outline" onClick={() => setStep(5)}>
-              Skip for now
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          {workspaceData?.workspace?.name && (
+            <p className="rounded-lg border border-border-subtle bg-bg-surface px-3 py-2 text-sm text-text-secondary">
+              Working on{" "}
+              <span className="font-medium text-text-primary">
+                {workspaceData.workspace.name}
+              </span>
+            </p>
+          )}
+        </header>
 
-      {step === 5 && activeWorkspaceId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{ONBOARDING_STEPS[5].title}</CardTitle>
-            <CardDescription>{ONBOARDING_STEPS[5].description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <WorkspaceSettingsForm
-              initialData={workspaceData?.workspace}
-              showName={false}
-              onSubmit={async (data) => {
-                await schedulingMutation.mutateAsync(data);
-              }}
-              isSubmitting={schedulingMutation.isPending}
-              submitLabel="Finish Setup"
-            />
-          </CardContent>
-        </Card>
-      )}
+        <div className="rounded-2xl border border-border-subtle bg-bg-surface/80 p-5 backdrop-blur-sm sm:p-6">
+          <OnboardingStepper currentStep={step} />
+        </div>
+
+        <section className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-surface shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+          <div className="border-b border-border-subtle px-5 py-5 sm:px-8 sm:py-6">
+            <div className="flex items-start gap-4">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+                <StepIcon className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-caption">
+                  {currentStepMeta.hint}
+                </p>
+                <h2 className="mt-1 text-section-header">
+                  {currentStepMeta.title}
+                </h2>
+                <p className="mt-1 text-sm text-text-secondary">
+                  {currentStepMeta.description}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-6 sm:px-8 sm:py-8">
+            {step === 0 && !workspaceId && (
+              <div className="mx-auto max-w-lg space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="workspace_name">Workspace name</Label>
+                  <Input
+                    id="workspace_name"
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    placeholder="e.g. Bloom Coffee"
+                    required
+                    className="h-11"
+                  />
+                  <p className="text-caption">
+                    You can rename this later in workspace settings.
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => createWorkspaceMutation.mutate()}
+                  disabled={
+                    !workspaceName.trim() || createWorkspaceMutation.isPending
+                  }
+                >
+                  {createWorkspaceMutation.isPending
+                    ? "Creating..."
+                    : "Continue"}
+                  {!createWorkspaceMutation.isPending && (
+                    <ArrowRight className="size-4" />
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {step === 1 && activeWorkspaceId && (
+              <BusinessProfileForm
+                initialData={profileData?.business_profile}
+                onSubmit={async (data) => {
+                  await profileMutation.mutateAsync(data);
+                }}
+                isSubmitting={profileMutation.isPending}
+                submitLabel="Continue"
+              />
+            )}
+
+            {step === 2 && activeWorkspaceId && (
+              <div className="space-y-6">
+                <KnowledgeUpload workspaceId={activeWorkspaceId} />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="lg"
+                    className="gap-2"
+                    onClick={() => setStep(3)}
+                    disabled={!hasIndexed}
+                  >
+                    Continue
+                    <ArrowRight className="size-4" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => setStep(3)}
+                  >
+                    Skip for now
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && activeWorkspaceId && (
+              <AIConfigurationForm
+                onSubmit={async (data) => {
+                  await aiMutation.mutateAsync(data);
+                }}
+                isSubmitting={aiMutation.isPending}
+                submitLabel="Continue"
+              />
+            )}
+
+            {step === 4 && activeWorkspaceId && (
+              <div className="space-y-6">
+                <div className="rounded-xl border border-border-subtle bg-bg-base/50 p-5">
+                  <p className="text-sm text-text-secondary">
+                    Connect an Instagram Professional account linked to a
+                    Facebook Page. You can skip and finish this later from
+                    settings.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="lg"
+                      className="gap-2"
+                      onClick={() => connectInstagramMutation.mutate()}
+                      disabled={connectInstagramMutation.isPending}
+                    >
+                      <Camera className="size-4" />
+                      {connectInstagramMutation.isPending
+                        ? "Connecting..."
+                        : "Connect Instagram"}
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() => setStep(5)}
+                    >
+                      Skip for now
+                    </Button>
+                  </div>
+                </div>
+                <InstagramSetupGuide defaultOpen />
+              </div>
+            )}
+
+            {step === 5 && activeWorkspaceId && (
+              <WorkspaceSettingsForm
+                initialData={workspaceData?.workspace}
+                showName={false}
+                onSubmit={async (data) => {
+                  await schedulingMutation.mutateAsync(data);
+                }}
+                isSubmitting={schedulingMutation.isPending}
+                submitLabel="Finish setup"
+              />
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

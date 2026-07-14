@@ -44,8 +44,8 @@ export function RegisterForm() {
         <CardContent className="space-y-4">
           <Alert>
             <AlertDescription>
-              We sent a verification link to {email}. Verify your email, then
-              sign in.
+              We sent a verification link to {email}. Open it to verify, then
+              sign in here.
             </AlertDescription>
           </Alert>
           <Button className="w-full" onClick={() => router.push("/login")}>

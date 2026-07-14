@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GoogleOAuthCallbackHandler } from "@/components/auth/google-oauth-callback-handler";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
@@ -22,6 +23,16 @@ export function LoginForm() {
   const postAuthRedirect = searchParams.get("redirect") ?? undefined;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showVerifiedBanner, setShowVerifiedBanner] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("verified") !== "1") return;
+    setShowVerifiedBanner(true);
+    toast.success("Email verified — you can sign in");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("verified");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+  }, [searchParams]);
 
   const mutation = useMutation({
     mutationFn: () => login(email, password),
@@ -43,6 +54,13 @@ export function LoginForm() {
         <CardTitle>Sign in</CardTitle>
       </CardHeader>
       <CardContent>
+        {showVerifiedBanner && (
+          <Alert className="mb-4 border-status-approved/30 bg-status-approved/10">
+            <AlertDescription className="text-status-approved">
+              Your email is verified. Sign in to continue.
+            </AlertDescription>
+          </Alert>
+        )}
         <GoogleOAuthCallbackHandler />
         <GoogleSignInButton postAuthRedirect={postAuthRedirect} />
         <div className="relative my-6">

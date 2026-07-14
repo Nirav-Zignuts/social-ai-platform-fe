@@ -11,6 +11,7 @@ const PUBLIC_ROUTES = [
   "/login",
   "/register",
   "/pricing",
+  "/verify-email",
   "/instagram/callback-landing",
 ];
 
