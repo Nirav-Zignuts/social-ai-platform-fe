@@ -241,6 +241,9 @@ export function useHasIndexedDocuments(workspaceId: string) {
   const { data } = useQuery({
     queryKey: ["documents", workspaceId],
     queryFn: () => api.workspaces.listDocuments(workspaceId),
+    enabled: Boolean(workspaceId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
   return (data?.documents ?? []).some((d) => d.status === "indexed");
 }

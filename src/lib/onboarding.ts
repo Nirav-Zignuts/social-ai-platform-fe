@@ -74,6 +74,21 @@ export function getStepIndexFromStatus(status: OnboardingStatus): number {
   return STATUS_TO_STEP_INDEX[status] ?? 0;
 }
 
+export function getStepIndexFromQuery(stepParam: string | null): number | null {
+  if (!stepParam) return null;
+  const byId = ONBOARDING_STEPS.findIndex((step) => step.id === stepParam);
+  if (byId >= 0) return byId;
+  const asNumber = Number(stepParam);
+  if (
+    Number.isInteger(asNumber) &&
+    asNumber >= 0 &&
+    asNumber < ONBOARDING_STEPS.length
+  ) {
+    return asNumber;
+  }
+  return null;
+}
+
 export function isOnboardingComplete(status: OnboardingStatus): boolean {
   return status === "completed";
 }

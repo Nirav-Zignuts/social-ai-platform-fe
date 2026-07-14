@@ -338,11 +338,16 @@ export function InstagramConnectionPanel({
 }: {
   workspaceId: string;
 }) {
-  const connectMutation = useConnectInstagram(workspaceId);
+  const connectMutation = useConnectInstagram(workspaceId, {
+    type: "settings",
+    workspaceId,
+  });
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["instagram", workspaceId],
     queryFn: () => api.instagram.getConnection(workspaceId),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   if (isLoading) {

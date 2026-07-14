@@ -57,6 +57,8 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
   const { data: workspacesData } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => api.workspaces.list(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const workspaces = workspacesData?.workspaces ?? [];

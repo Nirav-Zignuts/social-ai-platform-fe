@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowRight, Camera, Sparkles } from "lucide-react";
@@ -10,6 +10,7 @@ import { useConnectInstagram } from "@/hooks/use-connect-instagram";
 import { isAtWorkspaceLimit } from "@/lib/plans";
 import { WorkspaceLimitBanner } from "@/components/billing/workspace-limit-banner";
 import {
+  getStepIndexFromQuery,
   getStepIndexFromStatus,
   ONBOARDING_STEPS,
 } from "@/lib/onboarding";
@@ -33,10 +34,12 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [workspaceName, setWorkspaceName] = useState("");
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState(workspaceId);
+  const seededFromStatusRef = useRef(false);
 
   const activeWorkspaceId = createdWorkspaceId ?? workspaceId;
   const currentStepMeta = ONBOARDING_STEPS[step] ?? ONBOARDING_STEPS[0];
@@ -46,6 +49,8 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
     queryKey: ["workspace", activeWorkspaceId],
     queryFn: () => api.workspaces.get(activeWorkspaceId!),
     enabled: Boolean(activeWorkspaceId),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: profileData } = useQuery({
@@ -53,25 +58,40 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
     queryFn: () => api.workspaces.getBusinessProfile(activeWorkspaceId!),
     enabled: Boolean(activeWorkspaceId) && step >= 1,
     retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const hasIndexed = useHasIndexedDocuments(activeWorkspaceId ?? "");
 
+  // Resume after Instagram OAuth: ?step=scheduling
   useEffect(() => {
-    if (workspaceData?.workspace) {
-      const index = getStepIndexFromStatus(
-        workspaceData.workspace.onboarding_status,
-      );
-      if (workspaceId) {
-        setStep(index);
-      }
+    const fromQuery = getStepIndexFromQuery(searchParams.get("step"));
+    if (fromQuery == null) return;
+    setStep(fromQuery);
+    seededFromStatusRef.current = true;
+    if (searchParams.has("step")) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("step");
+      window.history.replaceState({}, "", `${url.pathname}${url.search}`);
     }
+  }, [searchParams]);
+
+  // Seed step once from backend onboarding_status (don't clobber later progress).
+  useEffect(() => {
+    if (!workspaceId || !workspaceData?.workspace || seededFromStatusRef.current) {
+      return;
+    }
+    setStep(getStepIndexFromStatus(workspaceData.workspace.onboarding_status));
+    seededFromStatusRef.current = true;
   }, [workspaceData, workspaceId]);
 
   const { data: workspacesData, isLoading: workspacesListLoading } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => api.workspaces.list(),
     enabled: !workspaceId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const workspaceCount = workspacesData?.workspaces.length ?? 0;
@@ -145,7 +165,12 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
       ),
   });
 
-  const connectInstagramMutation = useConnectInstagram(activeWorkspaceId ?? "");
+  const connectInstagramMutation = useConnectInstagram(
+    activeWorkspaceId ?? "",
+    activeWorkspaceId
+      ? { type: "onboarding", workspaceId: activeWorkspaceId }
+      : undefined,
+  );
 
   if (workspaceId && workspaceLoading) {
     return (

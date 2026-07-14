@@ -25,7 +25,7 @@ export function NotificationBell({ workspaceId }: NotificationBellProps) {
   const { data } = useQuery({
     queryKey: ["notifications", workspaceId, { unreadOnly: false, limit: 50 }],
     queryFn: () => api.notifications.list(workspaceId, false, 50),
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
   });
 
   const notifications = data?.notifications ?? [];

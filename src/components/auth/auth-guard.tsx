@@ -26,7 +26,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     PUBLIC_ROUTES.some(
       (route) => route !== "/" && pathname.startsWith(route),
     );
-  // Re-read on every render after mount so logout immediately drops session.
   const hasSession = mounted && hasStoredSession();
 
   useEffect(() => {
@@ -54,7 +53,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (hasSession && isLoading) return;
 
     if (!isAuthenticated) {
-      // Don't bounce through a redirect loop when already logging out to /login.
       router.replace("/login");
     }
   }, [
@@ -67,7 +65,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     router,
   ]);
 
-  if (!mounted) {
+  // Public routes render immediately — no auth bootstrap blocker.
+  if (isPublic) {
+    return <>{children}</>;
+  }
+
+  if (!mounted || (hasSession && isLoading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base p-8">
         <div className="w-full max-w-md space-y-4">
@@ -79,19 +82,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isPublic && hasSession && isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-base p-8">
-        <div className="w-full max-w-md space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-3/4" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!isPublic && !isAuthenticated) {
+  if (!isAuthenticated) {
     return null;
   }
 

@@ -20,6 +20,7 @@ const CONTENT_STYLES = [
   "playful",
   "educational",
   "inspirational",
+  "storytelling",
 ];
 const CAPTION_LENGTHS = ["short", "medium", "long"];
 const EMOJI_USAGE = ["none", "minimal", "moderate", "heavy"];
