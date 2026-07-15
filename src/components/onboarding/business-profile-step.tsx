@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BusinessProfileForm } from "@/components/forms/business-profile-form";
 import { OnboardingChatPanel } from "@/components/onboarding/onboarding-chat-panel";
 import {
@@ -26,6 +26,16 @@ interface BusinessProfileStepProps {
   isSubmitting?: boolean;
 }
 
+function buildChatSource(
+  collectedFields: Record<string, unknown>,
+  draftProfile: SynthesizedBusinessProfile | null,
+): Record<string, unknown> {
+  if (draftProfile) {
+    return synthesizedProfileToUpsert(draftProfile) as Record<string, unknown>;
+  }
+  return collectedFields;
+}
+
 export function BusinessProfileStep({
   workspaceId,
   initialData,
@@ -43,24 +53,17 @@ export function BusinessProfileStep({
   );
   const chatValueFingerprintRef = useRef<Record<string, string>>({});
 
-  const chatSource = useMemo(() => {
-    if (draftProfile) {
-      return synthesizedProfileToUpsert(draftProfile) as Record<string, unknown>;
-    }
-    return collectedFields;
-  }, [collectedFields, draftProfile]);
-
-  // Re-enable badge when chat supplies a new value for a previously cleared field.
-  useEffect(() => {
+  const restoreDismissedForUpdatedChatValues = (
+    nextSource: Record<string, unknown>,
+  ) => {
     const toRestore: string[] = [];
 
-    for (const [key, value] of Object.entries(chatSource)) {
+    for (const [key, value] of Object.entries(nextSource)) {
       const fingerprint = serializeChatFieldValue(value);
       if (!fingerprint) continue;
       const previous = chatValueFingerprintRef.current[key];
       if (previous !== fingerprint) {
         chatValueFingerprintRef.current[key] = fingerprint;
-        // Skip first-seen values; only restore after a real update.
         if (previous !== undefined) {
           toRestore.push(key);
         }
@@ -76,7 +79,19 @@ export function BusinessProfileStep({
       }
       return changed ? next : prev;
     });
-  }, [chatSource]);
+  };
+
+  const handleCollectedFieldsChange = (fields: Record<string, unknown>) => {
+    setCollectedFields(fields);
+    restoreDismissedForUpdatedChatValues(
+      buildChatSource(fields, draftProfile),
+    );
+  };
+
+  const chatSource = useMemo(
+    () => buildChatSource(collectedFields, draftProfile),
+    [collectedFields, draftProfile],
+  );
 
   const highlightedFields = useMemo(
     () => getHighlightedProfileFields(draftProfile?.synthesis_notes),
@@ -168,11 +183,15 @@ export function BusinessProfileStep({
         <OnboardingChatPanel
           workspaceId={workspaceId}
           className="h-[min(70vh,720px)] max-h-[min(70vh,720px)] w-full"
-          onCollectedFieldsChange={setCollectedFields}
+          onCollectedFieldsChange={handleCollectedFieldsChange}
           onComplete={(profile, forced) => {
             setDraftProfile(profile);
             setForcedSynthesis(forced);
-            setCollectedFields(synthesizedProfileToUpsert(profile));
+            const nextFields = synthesizedProfileToUpsert(profile);
+            setCollectedFields(nextFields);
+            restoreDismissedForUpdatedChatValues(
+              nextFields as Record<string, unknown>,
+            );
           }}
         />
 
