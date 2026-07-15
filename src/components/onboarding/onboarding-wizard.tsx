@@ -18,7 +18,7 @@ import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BusinessProfileForm } from "@/components/forms/business-profile-form";
+import { BusinessProfileStep } from "@/components/onboarding/business-profile-step";
 import {
   KnowledgeUpload,
   useHasIndexedDocuments,
@@ -27,6 +27,8 @@ import { AIConfigurationForm } from "@/components/forms/ai-configuration-form";
 import { WorkspaceSettingsForm } from "@/components/forms/workspace-settings-form";
 import { InstagramSetupGuide } from "@/components/instagram/instagram-setup-guide";
 import { Skeleton } from "@/components/ui/skeleton";
+import { clearOnboardingChatSessionId } from "@/lib/onboarding-chat";
+import { cn } from "@/lib/utils";
 
 interface OnboardingWizardProps {
   workspaceId?: string;
@@ -124,8 +126,14 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
       payload: Parameters<typeof api.workspaces.upsertBusinessProfile>[1],
     ) => api.workspaces.upsertBusinessProfile(activeWorkspaceId!, payload),
     onSuccess: () => {
+      if (activeWorkspaceId) {
+        clearOnboardingChatSessionId(activeWorkspaceId);
+      }
       queryClient.invalidateQueries({
         queryKey: ["workspace", activeWorkspaceId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["business-profile", activeWorkspaceId],
       });
       setStep(2);
       toast.success("Business profile saved");
@@ -205,7 +213,12 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   }
 
   return (
-    <div className="relative mx-auto max-w-4xl">
+    <div
+      className={cn(
+        "relative mx-auto",
+        step === 1 ? "max-w-6xl" : "max-w-4xl",
+      )}
+    >
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 -top-8 h-48 opacity-80"
@@ -224,8 +237,8 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
             </div>
             <h1 className="mt-4 text-page-title">Build your operating space</h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">
-              A short guided setup so AI already understands your brand before
-              the first draft.
+              Chat through your brand profile, then finish knowledge, AI voice,
+              Instagram, and scheduling — before the first draft.
             </p>
           </div>
           {workspaceData?.workspace?.name && (
@@ -298,13 +311,13 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
             )}
 
             {step === 1 && activeWorkspaceId && (
-              <BusinessProfileForm
+              <BusinessProfileStep
+                workspaceId={activeWorkspaceId}
                 initialData={profileData?.business_profile}
                 onSubmit={async (data) => {
                   await profileMutation.mutateAsync(data);
                 }}
                 isSubmitting={profileMutation.isPending}
-                submitLabel="Continue"
               />
             )}
 

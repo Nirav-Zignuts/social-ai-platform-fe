@@ -9,6 +9,9 @@ import type {
   InstagramConnectionStatus,
   KnowledgeDocument,
   Notification,
+  OnboardingChatSession,
+  OnboardingChatStart,
+  OnboardingChatTurn,
   User,
   Workspace,
   WorkspaceCreate,
@@ -462,6 +465,25 @@ export const api = {
       apiRequest<null>(
         `/workspaces/${workspaceId}/knowledge-base/documents/${documentId}`,
         { method: "DELETE" },
+      ),
+  },
+
+  onboardingChat: {
+    start: (workspaceId: string) =>
+      apiRequest<OnboardingChatStart>(
+        `/workspaces/${workspaceId}/onboarding-chat/start`,
+        { method: "POST" },
+      ),
+
+    sendMessage: (workspaceId: string, sessionId: string, content: string) =>
+      apiRequest<OnboardingChatTurn>(
+        `/workspaces/${workspaceId}/onboarding-chat/${sessionId}/message`,
+        { method: "POST", body: { content } },
+      ),
+
+    getSession: (workspaceId: string, sessionId: string) =>
+      apiRequest<OnboardingChatSession>(
+        `/workspaces/${workspaceId}/onboarding-chat/${sessionId}`,
       ),
   },
 

@@ -20,8 +20,8 @@ export const ONBOARDING_STEPS = [
   {
     id: "profile",
     title: "Business profile",
-    description: "Tell AI who you are and who you serve",
-    hint: "Better briefs mean stronger drafts.",
+    description: "Chat through your brand — or fill the form",
+    hint: "Conversation drafts a profile you can tweak before saving.",
     icon: FileText,
   },
   {

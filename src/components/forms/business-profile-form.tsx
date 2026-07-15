@@ -5,21 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TagInput } from "@/components/shared/tag-input";
+import { cn } from "@/lib/utils";
 import type { BusinessProfile, BusinessProfileUpsert } from "@/lib/types";
 
 interface BusinessProfileFormProps {
-  initialData?: BusinessProfile | null;
+  initialData?: BusinessProfile | BusinessProfileUpsert | null;
   onSubmit: (data: BusinessProfileUpsert) => Promise<void>;
   isSubmitting?: boolean;
   submitLabel?: string;
+  /** Field keys to visually flag for review (from synthesis_notes). */
+  highlightedFields?: Set<string>;
+  /** Fields auto-filled from onboarding chat. */
+  fromChatFields?: Set<string>;
+  /** Called when the user clears a chat-filled field. */
+  onDismissFromChatField?: (fieldKey: string) => void;
+  synthesisNotes?: string | null;
+  className?: string;
 }
 
 function useStateField(initial: string) {
@@ -30,11 +32,68 @@ function useStateField(initial: string) {
   return [value, setValue] as const;
 }
 
+function FieldLabel({
+  htmlFor,
+  children,
+  fromChat,
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+  fromChat?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Label htmlFor={htmlFor}>{children}</Label>
+      {fromChat && (
+        <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-accent">
+          ✨ from chat
+        </span>
+      )}
+    </div>
+  );
+}
+
+function FieldShell({
+  fieldKey,
+  highlighted,
+  fromChat,
+  children,
+}: {
+  fieldKey: string;
+  highlighted?: Set<string>;
+  fromChat?: Set<string>;
+  children: React.ReactNode;
+}) {
+  const needsReview = highlighted?.has(fieldKey);
+  const filledFromChat = fromChat?.has(fieldKey);
+  return (
+    <div
+      className={cn(
+        "space-y-2 rounded-lg transition-colors",
+        filledFromChat && "border-l-2 border-accent pl-3",
+        needsReview &&
+          "border border-status-pending/40 bg-status-pending/5 p-3",
+        needsReview && filledFromChat && "border-l-2 border-l-accent",
+      )}
+    >
+      {children}
+      {needsReview && (
+        <p className="text-[11px] text-status-pending">Needs a quick review</p>
+      )}
+    </div>
+  );
+}
+
 export function BusinessProfileForm({
   initialData,
   onSubmit,
   isSubmitting,
   submitLabel = "Save",
+  highlightedFields,
+  fromChatFields,
+  onDismissFromChatField,
+  synthesisNotes,
+  className,
 }: BusinessProfileFormProps) {
   const [businessName, setBusinessName] = useStateField(
     initialData?.business_name ?? "",
@@ -59,6 +118,33 @@ export function BusinessProfileForm({
     initialData?.required_keywords ?? [],
   );
 
+  useEffect(() => {
+    setProhibitedWords(initialData?.prohibited_words ?? []);
+    setRequiredKeywords(initialData?.required_keywords ?? []);
+  }, [initialData]);
+
+  const handleTextChange = (
+    fieldKey: string,
+    value: string,
+    setter: (value: string) => void,
+  ) => {
+    setter(value);
+    if (!value.trim()) {
+      onDismissFromChatField?.(fieldKey);
+    }
+  };
+
+  const handleTagsChange = (
+    fieldKey: string,
+    value: string[],
+    setter: (value: string[]) => void,
+  ) => {
+    setter(value);
+    if (value.length === 0) {
+      onDismissFromChatField?.(fieldKey);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSubmit({
@@ -74,79 +160,176 @@ export function BusinessProfileForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className={cn("space-y-4", className)}>
+      {synthesisNotes && (
+        <div className="rounded-xl border border-status-pending/35 bg-status-pending/10 px-4 py-3 text-sm text-text-secondary">
+          <p className="font-medium text-status-pending">Review before saving</p>
+          <p className="mt-1 leading-relaxed">{synthesisNotes}</p>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="business_name">Business Name</Label>
+        <FieldShell
+          fieldKey="business_name"
+          highlighted={highlightedFields}
+          fromChat={fromChatFields}
+        >
+          <FieldLabel
+            htmlFor="business_name"
+            fromChat={fromChatFields?.has("business_name")}
+          >
+            Business Name
+          </FieldLabel>
           <Input
             id="business_name"
             value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
+            onChange={(e) =>
+              handleTextChange(
+                "business_name",
+                e.target.value,
+                setBusinessName,
+              )
+            }
             required
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="industry">Industry</Label>
+        </FieldShell>
+        <FieldShell
+          fieldKey="industry"
+          highlighted={highlightedFields}
+          fromChat={fromChatFields}
+        >
+          <FieldLabel
+            htmlFor="industry"
+            fromChat={fromChatFields?.has("industry")}
+          >
+            Industry
+          </FieldLabel>
           <Input
             id="industry"
             value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
+            onChange={(e) =>
+              handleTextChange("industry", e.target.value, setIndustry)
+            }
           />
-        </div>
+        </FieldShell>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+      <FieldShell
+        fieldKey="description"
+        highlighted={highlightedFields}
+        fromChat={fromChatFields}
+      >
+        <FieldLabel
+          htmlFor="description"
+          fromChat={fromChatFields?.has("description")}
+        >
+          Description
+        </FieldLabel>
         <Textarea
           id="description"
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e) =>
+            handleTextChange("description", e.target.value, setDescription)
+          }
           rows={3}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="target_audience">Target Audience</Label>
+      </FieldShell>
+      <FieldShell
+        fieldKey="target_audience"
+        highlighted={highlightedFields}
+        fromChat={fromChatFields}
+      >
+        <FieldLabel
+          htmlFor="target_audience"
+          fromChat={fromChatFields?.has("target_audience")}
+        >
+          Target Audience
+        </FieldLabel>
         <Textarea
           id="target_audience"
           value={targetAudience}
-          onChange={(e) => setTargetAudience(e.target.value)}
+          onChange={(e) =>
+            handleTextChange(
+              "target_audience",
+              e.target.value,
+              setTargetAudience,
+            )
+          }
           rows={2}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="brand_voice">Brand Voice</Label>
+      </FieldShell>
+      <FieldShell
+        fieldKey="brand_voice"
+        highlighted={highlightedFields}
+        fromChat={fromChatFields}
+      >
+        <FieldLabel
+          htmlFor="brand_voice"
+          fromChat={fromChatFields?.has("brand_voice")}
+        >
+          Brand Voice
+        </FieldLabel>
         <Textarea
           id="brand_voice"
           value={brandVoice}
-          onChange={(e) => setBrandVoice(e.target.value)}
+          onChange={(e) =>
+            handleTextChange("brand_voice", e.target.value, setBrandVoice)
+          }
           rows={2}
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="website_url">Website URL</Label>
+      </FieldShell>
+      <FieldShell
+        fieldKey="website_url"
+        highlighted={highlightedFields}
+        fromChat={fromChatFields}
+      >
+        <FieldLabel
+          htmlFor="website_url"
+          fromChat={fromChatFields?.has("website_url")}
+        >
+          Website URL
+        </FieldLabel>
         <Input
           id="website_url"
           type="url"
           value={websiteUrl}
-          onChange={(e) => setWebsiteUrl(e.target.value)}
+          onChange={(e) =>
+            handleTextChange("website_url", e.target.value, setWebsiteUrl)
+          }
           placeholder="https://"
         />
-      </div>
-      <div className="space-y-2">
-        <Label>Prohibited Words</Label>
+      </FieldShell>
+      <FieldShell
+        fieldKey="prohibited_words"
+        highlighted={highlightedFields}
+        fromChat={fromChatFields}
+      >
+        <FieldLabel fromChat={fromChatFields?.has("prohibited_words")}>
+          Prohibited Words
+        </FieldLabel>
         <TagInput
           value={prohibitedWords}
-          onChange={setProhibitedWords}
+          onChange={(value) =>
+            handleTagsChange("prohibited_words", value, setProhibitedWords)
+          }
           placeholder="Add word and press Enter"
         />
-      </div>
-      <div className="space-y-2">
-        <Label>Required Keywords</Label>
+      </FieldShell>
+      <FieldShell
+        fieldKey="required_keywords"
+        highlighted={highlightedFields}
+        fromChat={fromChatFields}
+      >
+        <FieldLabel fromChat={fromChatFields?.has("required_keywords")}>
+          Required Keywords
+        </FieldLabel>
         <TagInput
           value={requiredKeywords}
-          onChange={setRequiredKeywords}
+          onChange={(value) =>
+            handleTagsChange("required_keywords", value, setRequiredKeywords)
+          }
           placeholder="Add keyword and press Enter"
         />
-      </div>
+      </FieldShell>
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Saving..." : submitLabel}
       </Button>

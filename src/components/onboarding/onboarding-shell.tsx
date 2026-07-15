@@ -26,7 +26,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
       <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link
             href={hasWorkspaces ? "/dashboard" : "/onboarding"}
             className="text-sm font-semibold tracking-tight"
@@ -60,7 +60,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         {children}
       </main>
     </div>

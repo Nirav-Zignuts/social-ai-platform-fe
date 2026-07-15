@@ -31,6 +31,7 @@ export const PLANS = [
     features: [
       "Up to 2 workspaces",
       "1 Instagram account per workspace",
+      "Conversational brand profile setup",
       "AI-generated posts with human review",
       "Knowledge base (up to 3 documents per workspace)",
       "Community support",

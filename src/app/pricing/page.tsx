@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PricingCards } from "@/components/billing/pricing-cards";
 import { PRICING_FAQ } from "@/lib/plans";
+import { PublicSiteFooter } from "@/components/marketing/public-site-footer";
 import { PublicSiteHeader } from "@/components/marketing/public-site-header";
 
 export default function PricingPage() {
@@ -45,6 +46,7 @@ export default function PricingPage() {
           </p>
         </section>
       </main>
+      <PublicSiteFooter />
     </div>
   );
 }

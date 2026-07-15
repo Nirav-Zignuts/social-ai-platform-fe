@@ -76,6 +76,48 @@ export interface BusinessProfileUpsert {
   website_url?: string;
 }
 
+/** Draft returned by onboarding chat synthesis — review in FE, then upsert. */
+export interface SynthesizedBusinessProfile extends BusinessProfileUpsert {
+  synthesis_notes?: string | null;
+}
+
+export type OnboardingChatSessionStatus = "active" | "completed" | "abandoned";
+
+export interface OnboardingChatMessage {
+  id: string;
+  role: "assistant" | "user" | string;
+  content: string;
+  quick_replies: string[] | null;
+  created_at: string;
+}
+
+export interface OnboardingChatStart {
+  session_id: string;
+  message: string;
+  quick_replies: string[];
+}
+
+export interface OnboardingChatTurn {
+  message: string;
+  quick_replies: string[];
+  is_complete: boolean;
+  synthesized_profile: SynthesizedBusinessProfile | null;
+  turn_count: number;
+  collected_fields: Record<string, unknown>;
+  forced_synthesis: boolean;
+}
+
+export interface OnboardingChatSession {
+  session_id: string;
+  workspace_id: string;
+  status: OnboardingChatSessionStatus;
+  collected_fields: Record<string, unknown>;
+  turn_count: number;
+  started_at: string;
+  completed_at: string | null;
+  messages: OnboardingChatMessage[];
+}
+
 export type KnowledgeDocumentStatus =
   | "uploaded"
   | "processing"
