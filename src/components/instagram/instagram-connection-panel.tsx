@@ -1,15 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import {
   Camera,
   CheckCircle2,
   ExternalLink,
   RefreshCw,
   ShieldCheck,
+  Unplug,
 } from "lucide-react";
-import { api } from "@/lib/api-client";
+import { api, ApiError } from "@/lib/api-client";
 import { useConnectInstagram } from "@/hooks/use-connect-instagram";
 import type { ConnectedAccount, InstagramAccountMetrics } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -19,6 +22,14 @@ import {
   InstagramProfileAvatar,
   formatMetricCount,
 } from "@/components/shared/post-insights-panel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 function tokenExpiryLabel(expiresAt: string | null) {
@@ -79,11 +90,15 @@ function ConnectedAccountCard({
   metrics,
   onReconnect,
   isReconnecting,
+  onDisconnect,
+  isDisconnecting,
 }: {
   account: ConnectedAccount;
   metrics: InstagramAccountMetrics | null;
   onReconnect: () => void;
   isReconnecting: boolean;
+  onDisconnect: () => void;
+  isDisconnecting: boolean;
 }) {
   const display =
     metrics?.name ||
@@ -149,17 +164,28 @@ function ConnectedAccountCard({
             </div>
           </div>
 
-          <Button
-            variant="outline"
-            onClick={onReconnect}
-            disabled={isReconnecting}
-            className="shrink-0 gap-2"
-          >
-            <RefreshCw
-              className={cn("size-4", isReconnecting && "animate-spin")}
-            />
-            {isReconnecting ? "Redirecting..." : "Reconnect"}
-          </Button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={onReconnect}
+              disabled={isReconnecting || isDisconnecting}
+              className="gap-2"
+            >
+              <RefreshCw
+                className={cn("size-4", isReconnecting && "animate-spin")}
+              />
+              {isReconnecting ? "Redirecting..." : "Reconnect"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onDisconnect}
+              disabled={isReconnecting || isDisconnecting}
+              className="gap-2"
+            >
+              <Unplug className="size-4" />
+              Disconnect
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -338,6 +364,9 @@ export function InstagramConnectionPanel({
 }: {
   workspaceId: string;
 }) {
+  const queryClient = useQueryClient();
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+
   const connectMutation = useConnectInstagram(workspaceId, {
     type: "settings",
     workspaceId,
@@ -348,6 +377,20 @@ export function InstagramConnectionPanel({
     queryFn: () => api.instagram.getConnection(workspaceId),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: () => api.instagram.disconnect(workspaceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["instagram", workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
+      toast.success("Instagram disconnected");
+      setDisconnectOpen(false);
+    },
+    onError: (e: Error) =>
+      toast.error(
+        e instanceof ApiError ? e.message : "Failed to disconnect Instagram",
+      ),
   });
 
   if (isLoading) {
@@ -385,8 +428,41 @@ export function InstagramConnectionPanel({
           metrics={data.metrics ?? null}
           onReconnect={() => connectMutation.mutate()}
           isReconnecting={connectMutation.isPending}
+          onDisconnect={() => setDisconnectOpen(true)}
+          isDisconnecting={disconnectMutation.isPending}
         />
         <InstagramSetupGuide defaultOpen={false} />
+
+        <Dialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Disconnect Instagram?</DialogTitle>
+              <DialogDescription>
+                Publishing will fail until you reconnect. Scheduled posts for
+                this workspace won&apos;t go live without an active Instagram
+                connection.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDisconnectOpen(false)}
+                disabled={disconnectMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => disconnectMutation.mutate()}
+                disabled={disconnectMutation.isPending}
+              >
+                {disconnectMutation.isPending
+                  ? "Disconnecting..."
+                  : "Disconnect"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

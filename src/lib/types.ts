@@ -263,6 +263,35 @@ export interface InstagramConnectionStatus {
   metrics: InstagramAccountMetrics | null;
 }
 
+export interface WorkspaceDeleteResult {
+  workspace_id: string;
+  is_deleted: boolean;
+  chroma_vectors_removed: number;
+  soft_deleted: {
+    documents?: number;
+    posts?: number;
+    onboarding_sessions?: number;
+    [key: string]: number | undefined;
+  };
+}
+
+export interface InstagramDisconnectResult {
+  workspace_id: string;
+  provider: string;
+  status: string;
+  already_disconnected: boolean;
+  onboarding_status?: string;
+}
+
+export interface GeneratedPostDeleteResult {
+  post_id: string;
+  is_deleted: boolean;
+  sync_with_instagram: boolean;
+  instagram_deleted: boolean;
+  ig_media_id: string | null;
+  instagram_skipped_reason: string | null;
+}
+
 export type NotificationType =
   | "post_ready_for_review"
   | "post_approved"

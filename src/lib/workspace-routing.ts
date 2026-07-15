@@ -14,6 +14,13 @@ export function storeWorkspaceId(workspaceId: string) {
   localStorage.setItem(LAST_WORKSPACE_KEY, workspaceId);
 }
 
+export function clearStoredWorkspaceId(workspaceId?: string) {
+  if (typeof window === "undefined") return;
+  if (!workspaceId || getStoredWorkspaceId() === workspaceId) {
+    localStorage.removeItem(LAST_WORKSPACE_KEY);
+  }
+}
+
 /** Extract /workspaces/:id from a pathname. */
 export function getWorkspaceIdFromPathname(pathname: string): string | null {
   const match = pathname.match(/^\/workspaces\/([^/]+)/);

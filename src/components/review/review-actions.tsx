@@ -47,6 +47,7 @@ export function ReviewActions({
   const [skipOpen, setSkipOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [syncWithInstagram, setSyncWithInstagram] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [regenerateFeedback, setRegenerateFeedback] = useState("");
   const [editCaption, setEditCaption] = useState(post.caption ?? "");
@@ -140,16 +141,32 @@ export function ReviewActions({
       toast.error(e instanceof ApiError ? e.message : "Edit failed"),
   });
 
+  const isPublished = post.status === "PUBLISHED";
+
   const deleteMutation = useMutation({
-    mutationFn: () => api.posts.delete(workspaceId, post.id),
-    onSuccess: () => {
+    mutationFn: () =>
+      api.posts.delete(workspaceId, post.id, {
+        syncWithInstagram: isPublished && syncWithInstagram,
+      }),
+    onSuccess: (result) => {
       invalidate();
-      toast.success("Post deleted");
+      if (result.sync_with_instagram && result.instagram_deleted) {
+        toast.success("Post deleted from workspace and Instagram");
+      } else if (
+        result.sync_with_instagram &&
+        !result.instagram_deleted &&
+        result.instagram_skipped_reason
+      ) {
+        toast.success("Post deleted from workspace");
+        toast.message(result.instagram_skipped_reason);
+      } else {
+        toast.success("Post deleted");
+      }
       setDeleteOpen(false);
-      const returnPath =
-        post.status === "PUBLISHED"
-          ? `/workspaces/${workspaceId}/published`
-          : `/workspaces/${workspaceId}/review`;
+      setSyncWithInstagram(false);
+      const returnPath = isPublished
+        ? `/workspaces/${workspaceId}/published`
+        : `/workspaces/${workspaceId}/review`;
       router.push(returnPath);
     },
     onError: (e: Error) =>
@@ -262,13 +279,17 @@ export function ReviewActions({
       <Separator />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-caption">
-          Delete removes this post from your workspace. This can’t be undone
-          from the app.
+          {isPublished
+            ? "Delete from your workspace. Optionally remove it from Instagram too."
+            : "Delete removes this post from your workspace. This can’t be undone from the app."}
         </p>
         <Button
           variant="destructive"
           className="gap-2"
-          onClick={() => setDeleteOpen(true)}
+          onClick={() => {
+            setSyncWithInstagram(false);
+            setDeleteOpen(true);
+          }}
         >
           <Trash2 className="size-4" />
           Delete post
@@ -468,17 +489,47 @@ export function ReviewActions({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) setSyncWithInstagram(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete this post?</DialogTitle>
             <DialogDescription>
-              The post will be removed from your workspace lists. This action
-              can’t be undone from the app.
+              {isPublished
+                ? "The post will be removed from your workspace. If Instagram delete fails, the local post is not deleted."
+                : "The post will be removed from your workspace lists. This can’t be undone from the app."}
             </DialogDescription>
           </DialogHeader>
+          {isPublished && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle bg-bg-base px-3 py-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 rounded border"
+                checked={syncWithInstagram}
+                onChange={(e) => setSyncWithInstagram(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium text-text-primary">
+                  Also delete from Instagram
+                </span>
+                <span className="mt-0.5 block text-caption">
+                  Removes the live Instagram media when a published media id is
+                  available.
+                </span>
+              </span>
+            </label>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -486,7 +537,11 @@ export function ReviewActions({
               onClick={() => deleteMutation.mutate()}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete post"}
+              {deleteMutation.isPending
+                ? "Deleting..."
+                : syncWithInstagram
+                  ? "Delete everywhere"
+                  : "Delete post"}
             </Button>
           </DialogFooter>
         </DialogContent>

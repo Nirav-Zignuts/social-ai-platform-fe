@@ -5,8 +5,10 @@ import type {
   BusinessProfile,
   BusinessProfileUpsert,
   GeneratedPost,
+  GeneratedPostDeleteResult,
   GeneratedPostDetail,
   InstagramConnectionStatus,
+  InstagramDisconnectResult,
   KnowledgeDocument,
   Notification,
   OnboardingChatSession,
@@ -15,6 +17,7 @@ import type {
   User,
   Workspace,
   WorkspaceCreate,
+  WorkspaceDeleteResult,
   WorkspaceUpdate,
 } from "./types";
 
@@ -419,6 +422,11 @@ export const api = {
         body: payload,
       }),
 
+    delete: (workspaceId: string) =>
+      apiRequest<WorkspaceDeleteResult>(`/workspaces/${workspaceId}`, {
+        method: "DELETE",
+      }),
+
     upsertBusinessProfile: (
       workspaceId: string,
       payload: BusinessProfileUpsert,
@@ -534,11 +542,19 @@ export const api = {
         { method: "POST", body: payload },
       ),
 
-    delete: (workspaceId: string, postId: string) =>
-      apiRequest<unknown>(
-        `/workspaces/${workspaceId}/generated-posts/${postId}`,
+    delete: (
+      workspaceId: string,
+      postId: string,
+      options?: { syncWithInstagram?: boolean },
+    ) => {
+      const sync = options?.syncWithInstagram
+        ? "?sync_with_instagram=true"
+        : "";
+      return apiRequest<GeneratedPostDeleteResult>(
+        `/workspaces/${workspaceId}/generated-posts/${postId}${sync}`,
         { method: "DELETE" },
-      ),
+      );
+    },
   },
 
   notifications: {
@@ -561,5 +577,11 @@ export const api = {
       ),
 
     connect: connectInstagram,
+
+    disconnect: (workspaceId: string) =>
+      apiRequest<InstagramDisconnectResult>(
+        `/workspaces/${workspaceId}/instagram`,
+        { method: "DELETE" },
+      ),
   },
 };
