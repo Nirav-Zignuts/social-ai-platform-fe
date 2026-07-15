@@ -8,9 +8,13 @@ import {
   Camera,
   CheckCircle2,
   ExternalLink,
+  FileImage,
+  KeyRound,
+  Link2,
   RefreshCw,
-  ShieldCheck,
   Unplug,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { useConnectInstagram } from "@/hooks/use-connect-instagram";
@@ -18,10 +22,11 @@ import type { ConnectedAccount, InstagramAccountMetrics } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InstagramSetupGuide } from "@/components/instagram/instagram-setup-guide";
+import { InstagramProfileAvatar } from "@/components/shared/post-insights-panel";
 import {
-  InstagramProfileAvatar,
+  MetricCard,
   formatMetricCount,
-} from "@/components/shared/post-insights-panel";
+} from "@/components/shared/metric-card";
 import {
   Dialog,
   DialogContent,
@@ -119,18 +124,68 @@ function ConnectedAccountCard({
         ? "danger"
         : "muted";
 
+  const overviewMetrics = [
+    {
+      label: "Followers",
+      value: formatMetricCount(metrics?.followers_count),
+      icon: Users,
+      tone: "accent" as const,
+    },
+    {
+      label: "Following",
+      value: formatMetricCount(metrics?.follows_count),
+      icon: UserPlus,
+      tone: "default" as const,
+    },
+    {
+      label: "Posts",
+      value: formatMetricCount(metrics?.media_count),
+      icon: FileImage,
+      tone: "default" as const,
+    },
+  ];
+
+  const detailCards = [
+    {
+      label: "Connected",
+      value: account.connected_at
+        ? format(new Date(account.connected_at), "MMM d, yyyy")
+        : "—",
+      icon: Link2,
+      tone: "ok" as const,
+    },
+    {
+      label: "Access token",
+      value: expiry.label,
+      icon: KeyRound,
+      tone:
+        expiry.tone === "danger"
+          ? ("danger" as const)
+          : expiry.tone === "warn"
+            ? ("warn" as const)
+            : ("default" as const),
+    },
+    {
+      label: "Facebook Page",
+      value: account.page_id ? `…${account.page_id.slice(-8)}` : "—",
+      hint: account.page_id ? "Page ID on file" : undefined,
+      icon: Camera,
+      tone: "default" as const,
+    },
+  ];
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border-subtle bg-bg-surface">
-      <div className="relative border-b border-border-subtle px-6 py-5">
+    <div className="space-y-5">
+      <div className="relative overflow-hidden rounded-2xl border border-border-subtle bg-bg-surface">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-40"
+          className="pointer-events-none absolute inset-0 opacity-50"
           style={{
             background:
-              "radial-gradient(120% 80% at 0% 0%, rgba(225,48,108,0.18), transparent 55%), radial-gradient(90% 70% at 100% 0%, rgba(131,58,180,0.16), transparent 50%)",
+              "radial-gradient(120% 80% at 0% 0%, rgba(225,48,108,0.14), transparent 55%), radial-gradient(90% 70% at 100% 0%, rgba(131,58,180,0.12), transparent 50%)",
           }}
         />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="relative flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div className="flex items-start gap-4">
             <InstagramProfileAvatar
               src={metrics?.profile_picture_url}
@@ -189,90 +244,44 @@ function ConnectedAccountCard({
         </div>
       </div>
 
-      {metrics && (
-        <div className="grid gap-px border-b border-border-subtle bg-border-subtle sm:grid-cols-3">
-          <MetricStat
-            label="Followers"
-            value={formatMetricCount(metrics.followers_count)}
-          />
-          <MetricStat
-            label="Following"
-            value={formatMetricCount(metrics.follows_count)}
-          />
-          <MetricStat
-            label="Posts"
-            value={formatMetricCount(metrics.media_count)}
-          />
-        </div>
-      )}
-
-      <div className="grid gap-px bg-border-subtle sm:grid-cols-3">
-        <MetaCell
-          label="Connected"
-          value={
-            account.connected_at
-              ? format(new Date(account.connected_at), "MMM d, yyyy")
-              : "—"
-          }
-        />
-        <MetaCell label="Access token" value={expiry.label} tone={expiry.tone} />
-        <MetaCell
-          label="Facebook Page ID"
-          value={account.page_id ?? "—"}
-          mono
-        />
-      </div>
-
-      <div className="flex items-start gap-3 border-t border-border-subtle px-6 py-4 text-caption">
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-status-approved" />
-        <p>
-          Stats are fetched live from Meta. Reconnect if you change Facebook
-          Pages or Meta revokes access.
+      <div>
+        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.1em] text-text-secondary">
+          Account overview
         </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {overviewMetrics.map((metric) => (
+            <MetricCard
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+              icon={metric.icon}
+              tone={metric.tone}
+            />
+          ))}
+        </div>
       </div>
-    </div>
-  );
-}
 
-function MetricStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-bg-surface px-6 py-4 text-center sm:text-left">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
-        {label}
-      </p>
-      <p className="mt-1.5 text-2xl font-semibold tabular-nums tracking-tight text-text-primary">
-        {value}
-      </p>
-    </div>
-  );
-}
+      <div>
+        <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.1em] text-text-secondary">
+          Connection details
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {detailCards.map((card) => (
+            <MetricCard
+              key={card.label}
+              label={card.label}
+              value={card.value}
+              hint={card.hint}
+              icon={card.icon}
+              tone={card.tone}
+            />
+          ))}
+        </div>
+      </div>
 
-function MetaCell({
-  label,
-  value,
-  tone,
-  mono,
-}: {
-  label: string;
-  value: string;
-  tone?: "ok" | "warn" | "danger" | "muted";
-  mono?: boolean;
-}) {
-  return (
-    <div className="bg-bg-surface px-6 py-4">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
-        {label}
-      </p>
-      <p
-        className={cn(
-          "mt-1.5 text-sm text-text-primary",
-          mono && "font-mono text-[13px]",
-          tone === "warn" && "text-status-pending",
-          tone === "danger" && "text-status-rejected",
-          tone === "ok" && "text-status-approved",
-        )}
-      >
-        {value}
+      <p className="text-caption">
+        Stats are fetched live from Meta. Reconnect if you change Facebook Pages
+        or Meta revokes access.
       </p>
     </div>
   );
@@ -287,7 +296,7 @@ function DisconnectedState({
 }) {
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-xl border border-border-subtle bg-bg-surface">
+      <div className="overflow-hidden rounded-2xl border border-border-subtle bg-bg-surface">
         <div className="relative px-6 py-10 sm:px-10">
           <div
             aria-hidden
@@ -339,20 +348,24 @@ function DisconnectedState({
 
 function ConnectionSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border-subtle bg-bg-surface">
-      <div className="flex items-center gap-4 px-6 py-5">
-        <Skeleton className="size-14 rounded-2xl" />
-        <div className="space-y-2">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-28" />
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border-subtle bg-bg-surface p-5">
+        <div className="flex items-center gap-4">
+          <Skeleton className="size-14 rounded-2xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-28" />
+          </div>
         </div>
       </div>
-      <div className="grid gap-px border-t border-border-subtle bg-border-subtle sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-bg-surface px-6 py-4">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="mt-2 h-4 w-32" />
-          </div>
+          <Skeleton key={i} className="h-28 rounded-2xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={`d-${i}`} className="h-28 rounded-2xl" />
         ))}
       </div>
     </div>
@@ -399,7 +412,7 @@ export function InstagramConnectionPanel({
 
   if (isError) {
     return (
-      <div className="rounded-xl border border-status-rejected/30 bg-status-rejected/10 px-6 py-8 text-center">
+      <div className="rounded-2xl border border-status-rejected/30 bg-status-rejected/10 px-6 py-8 text-center">
         <p className="text-sm text-status-rejected">
           Couldn&apos;t load Instagram connection status.
         </p>
@@ -418,8 +431,8 @@ export function InstagramConnectionPanel({
 
   if (data?.connected && data.account) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-sm text-status-approved">
+      <div className="space-y-5">
+        <div className="inline-flex items-center gap-2 rounded-full border border-status-approved/30 bg-status-approved/10 px-3 py-1.5 text-sm text-status-approved">
           <CheckCircle2 className="size-4" />
           Ready to publish from this workspace
         </div>

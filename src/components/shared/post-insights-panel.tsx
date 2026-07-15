@@ -14,25 +14,20 @@ import {
   Users,
 } from "lucide-react";
 import type { PostInsights } from "@/lib/types";
+import { MetricCard, formatMetricCount } from "@/components/shared/metric-card";
 import { cn } from "@/lib/utils";
-
-function formatCount(value: number | null | undefined): string {
-  if (value == null) return "—";
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 10_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString();
-}
 
 const INSIGHT_ITEMS: {
   key: keyof PostInsights;
   label: string;
   icon: typeof Heart;
+  tone?: "default" | "accent";
 }[] = [
-  { key: "like_count", label: "Likes", icon: Heart },
+  { key: "like_count", label: "Likes", icon: Heart, tone: "accent" },
   { key: "comments_count", label: "Comments", icon: MessageCircle },
   { key: "saved_count", label: "Saves", icon: Bookmark },
   { key: "shares_count", label: "Shares", icon: Share2 },
-  { key: "reach", label: "Reach", icon: Users },
+  { key: "reach", label: "Reach", icon: Users, tone: "accent" },
   { key: "views", label: "Views", icon: Eye },
   { key: "total_interactions", label: "Interactions", icon: TrendingUp },
   { key: "profile_visits", label: "Profile visits", icon: UserRound },
@@ -49,12 +44,12 @@ export function PostInsightsPanel({
     return (
       <div
         className={cn(
-          "rounded-xl border border-dashed border-border-subtle bg-bg-base/40 px-5 py-6",
+          "rounded-2xl border border-dashed border-border-subtle bg-bg-base/40 px-5 py-6",
           className,
         )}
       >
         <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-bg-surface-hover text-text-secondary">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-bg-surface-hover text-text-secondary">
             <TrendingUp className="size-4" />
           </span>
           <div>
@@ -72,13 +67,8 @@ export function PostInsightsPanel({
   }
 
   return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-xl border border-border-subtle bg-bg-surface",
-        className,
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
+    <section className={cn("space-y-4", className)}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-sm font-medium text-text-primary">
             Instagram insights
@@ -105,22 +95,18 @@ export function PostInsightsPanel({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-px bg-border-subtle sm:grid-cols-4">
-        {INSIGHT_ITEMS.map(({ key, label, icon: Icon }) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {INSIGHT_ITEMS.map(({ key, label, icon, tone }) => {
           const raw = insights[key];
           const value = typeof raw === "number" ? raw : null;
           return (
-            <div key={key} className="bg-bg-surface px-4 py-4">
-              <div className="flex items-center gap-1.5 text-text-secondary">
-                <Icon className="size-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wide">
-                  {label}
-                </span>
-              </div>
-              <p className="mt-2 text-xl font-semibold tabular-nums tracking-tight text-text-primary">
-                {formatCount(value)}
-              </p>
-            </div>
+            <MetricCard
+              key={key}
+              label={label}
+              value={formatMetricCount(value)}
+              icon={icon}
+              tone={tone}
+            />
           );
         })}
       </div>
@@ -128,9 +114,7 @@ export function PostInsightsPanel({
   );
 }
 
-export function formatMetricCount(value: number | null | undefined): string {
-  return formatCount(value);
-}
+export { formatMetricCount };
 
 export function InstagramProfileAvatar({
   src,
@@ -152,7 +136,7 @@ export function InstagramProfileAvatar({
     return (
       <div
         className={cn(
-          "relative size-14 shrink-0 overflow-hidden rounded-2xl",
+          "relative size-14 shrink-0 overflow-hidden rounded-2xl ring-1 ring-border-subtle",
           className,
         )}
       >
