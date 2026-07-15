@@ -20,7 +20,7 @@ export default function InstagramSettingsPage({ params }: PageProps) {
         description="Manage the account used to publish approved content"
       />
       <SettingsNav workspaceId={workspaceId} />
-      <InstagramConnectionPanel workspaceId={workspaceId} />
+      <InstagramConnectionPanel key={workspaceId} workspaceId={workspaceId} />
     </AppShell>
   );
 }

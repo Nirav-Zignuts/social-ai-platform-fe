@@ -24,6 +24,7 @@ export default function KnowledgeBaseSettingsPage({ params }: PageProps) {
       <Card>
         <CardContent className="pt-6">
           <KnowledgeUpload
+            key={workspaceId}
             workspaceId={workspaceId}
             showDelete
             pollWhileProcessing

@@ -51,6 +51,7 @@ export default function BusinessProfileSettingsPage({ params }: PageProps) {
             <Skeleton className="h-64 w-full rounded-lg" />
           ) : (
             <BusinessProfileForm
+              key={workspaceId}
               initialData={data?.business_profile}
               onSubmit={async (payload) => {
                 await mutation.mutateAsync(payload);

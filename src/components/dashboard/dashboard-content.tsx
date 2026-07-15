@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { isAtWorkspaceLimit } from "@/lib/plans";
+import { resolveActiveWorkspaceId } from "@/lib/workspace-routing";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PostCard, PostCardList } from "@/components/review/post-card";
@@ -26,11 +27,18 @@ export function DashboardContent() {
   const { data: workspacesData, isLoading: workspacesLoading } = useQuery({
     queryKey: ["workspaces"],
     queryFn: () => api.workspaces.list(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const workspaces = workspacesData?.workspaces ?? [];
+  const activeId = resolveActiveWorkspaceId({
+    pathname: "/dashboard",
+    queryWorkspaceId: workspaceParam,
+    workspaceIds: workspaces.map((w) => w.id),
+  });
   const selectedWorkspace =
-    workspaces.find((w) => w.id === workspaceParam) ?? workspaces[0];
+    workspaces.find((w) => w.id === activeId) ?? workspaces[0];
 
   const { data: postsData, isLoading: postsLoading } = useQuery({
     queryKey: ["posts", selectedWorkspace?.id],

@@ -190,6 +190,7 @@ export function BusinessProfileForm({
                 setBusinessName,
               )
             }
+            placeholder="e.g. Leafling Urban Nursery"
             required
           />
         </FieldShell>
@@ -210,6 +211,7 @@ export function BusinessProfileForm({
             onChange={(e) =>
               handleTextChange("industry", e.target.value, setIndustry)
             }
+            placeholder="e.g. Retail — Plants & Gardening"
           />
         </FieldShell>
       </div>
@@ -231,6 +233,7 @@ export function BusinessProfileForm({
             handleTextChange("description", e.target.value, setDescription)
           }
           rows={3}
+          placeholder="What you sell, who you help, and what makes you different"
         />
       </FieldShell>
       <FieldShell
@@ -255,6 +258,7 @@ export function BusinessProfileForm({
             )
           }
           rows={2}
+          placeholder="e.g. Urban plant parents and beginners new to houseplants"
         />
       </FieldShell>
       <FieldShell
@@ -275,6 +279,7 @@ export function BusinessProfileForm({
             handleTextChange("brand_voice", e.target.value, setBrandVoice)
           }
           rows={2}
+          placeholder="e.g. Warm, reassuring, and a little funny"
         />
       </FieldShell>
       <FieldShell
@@ -295,7 +300,7 @@ export function BusinessProfileForm({
           onChange={(e) =>
             handleTextChange("website_url", e.target.value, setWebsiteUrl)
           }
-          placeholder="https://"
+          placeholder="https://yourbrand.com"
         />
       </FieldShell>
       <FieldShell
@@ -311,7 +316,7 @@ export function BusinessProfileForm({
           onChange={(value) =>
             handleTagsChange("prohibited_words", value, setProhibitedWords)
           }
-          placeholder="Add word and press Enter"
+          placeholder="Words AI should avoid — press Enter"
         />
       </FieldShell>
       <FieldShell
@@ -327,7 +332,7 @@ export function BusinessProfileForm({
           onChange={(value) =>
             handleTagsChange("required_keywords", value, setRequiredKeywords)
           }
-          placeholder="Add keyword and press Enter"
+          placeholder="Brand terms to include — press Enter"
         />
       </FieldShell>
       <Button type="submit" disabled={isSubmitting}>

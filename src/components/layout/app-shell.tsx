@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
@@ -24,13 +24,13 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
+import { getCurrentPlanId, isAtWorkspaceLimit } from "@/lib/plans";
 import {
-  getCurrentPlanId,
-  isAtWorkspaceLimit,
-} from "@/lib/plans";
-import {
-  WorkspaceUsageChip,
-} from "@/components/billing/workspace-limit-banner";
+  buildWorkspaceSwitchHref,
+  resolveActiveWorkspaceId,
+  storeWorkspaceId,
+} from "@/lib/workspace-routing";
+import { WorkspaceUsageChip } from "@/components/billing/workspace-limit-banner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,10 +48,11 @@ interface AppShellProps {
   workspaceId?: string;
 }
 
-export function AppShell({ children, workspaceId }: AppShellProps) {
+function AppShellInner({ children, workspaceId }: AppShellProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const { data: workspacesData } = useQuery({
@@ -62,10 +63,24 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
   });
 
   const workspaces = workspacesData?.workspaces ?? [];
-  const selectedWorkspace =
-    workspaces.find((w) => w.id === workspaceId) ?? workspaces[0];
+  const workspaceIds = workspaces.map((w) => w.id);
+  const queryWorkspaceId = searchParams.get("workspace");
 
-  const wsId = selectedWorkspace?.id;
+  const wsId = resolveActiveWorkspaceId({
+    propId: workspaceId,
+    pathname,
+    queryWorkspaceId,
+    workspaceIds,
+  });
+
+  const selectedWorkspace =
+    workspaces.find((w) => w.id === wsId) ?? workspaces[0];
+
+  // Keep last-selected workspace in sync for dashboard / fallbacks.
+  useEffect(() => {
+    if (wsId) storeWorkspaceId(wsId);
+  }, [wsId]);
+
   const atWorkspaceLimit = isAtWorkspaceLimit(workspaces.length);
   const onFreePlan = getCurrentPlanId() === "free";
 
@@ -78,6 +93,16 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
       return;
     }
     router.push("/onboarding");
+  };
+
+  const switchWorkspace = (nextWorkspaceId: string) => {
+    storeWorkspaceId(nextWorkspaceId);
+    const search = searchParams.toString()
+      ? `?${searchParams.toString()}`
+      : "";
+    const href = buildWorkspaceSwitchHref(pathname, search, nextWorkspaceId);
+    router.push(href);
+    closeMobileNav();
   };
 
   const navItems = wsId
@@ -144,11 +169,12 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
     if (match === "/dashboard") return pathname === "/dashboard";
     if (match === "/settings") {
       return (
-        /\/workspaces\/[^/]+\/settings/.test(pathname) &&
-        !pathname.includes("/knowledge-base") &&
-        !pathname.includes("/business-profile") &&
-        !pathname.includes("/ai-configuration") &&
-        !pathname.includes("/instagram")
+        /\/workspaces\/[^/]+\/settings\/?$/.test(pathname) ||
+        (/\/workspaces\/[^/]+\/settings/.test(pathname) &&
+          !pathname.includes("/knowledge-base") &&
+          !pathname.includes("/business-profile") &&
+          !pathname.includes("/ai-configuration") &&
+          !pathname.includes("/instagram"))
       );
     }
     return pathname.includes(match);
@@ -158,7 +184,7 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
     <>
       <div className="flex h-14 items-center justify-between border-b border-border-subtle px-4 lg:justify-start">
         <Link
-          href="/dashboard"
+          href={wsId ? `/dashboard?workspace=${wsId}` : "/dashboard"}
           className="text-sm font-semibold tracking-tight text-text-primary"
           onClick={closeMobileNav}
         >
@@ -189,10 +215,8 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
               {workspaces.map((ws) => (
                 <DropdownMenuItem
                   key={ws.id}
-                  onClick={() => {
-                    router.push(`/dashboard?workspace=${ws.id}`);
-                    closeMobileNav();
-                  }}
+                  onClick={() => switchWorkspace(ws.id)}
+                  className={cn(ws.id === wsId && "bg-bg-surface-hover")}
                 >
                   {ws.name}
                 </DropdownMenuItem>
@@ -331,12 +355,10 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
 
   return (
     <div className="flex min-h-screen bg-bg-base">
-      {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border-subtle bg-bg-surface lg:flex">
         {sidebarContent}
       </aside>
 
-      {/* Mobile sidebar overlay */}
       {mobileNavOpen && (
         <button
           type="button"
@@ -354,7 +376,6 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
         {sidebarContent}
       </aside>
 
-      {/* Main */}
       <div className="flex min-h-screen w-full flex-1 flex-col lg:pl-60">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-border-subtle bg-bg-base/95 px-4 backdrop-blur-sm sm:px-6">
           <button
@@ -379,5 +400,19 @@ export function AppShell({ children, workspaceId }: AppShellProps) {
         </main>
       </div>
     </div>
+  );
+}
+
+export function AppShell({ children, workspaceId }: AppShellProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-bg-base">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-bg-surface" />
+        </div>
+      }
+    >
+      <AppShellInner workspaceId={workspaceId}>{children}</AppShellInner>
+    </Suspense>
   );
 }

@@ -49,6 +49,7 @@ export default function WorkspaceSettingsPage({ params }: PageProps) {
             <Skeleton className="h-64 w-full rounded-lg" />
           ) : (
             <WorkspaceSettingsForm
+              key={workspaceId}
               initialData={data?.workspace}
               onSubmit={async (payload) => {
                 await mutation.mutateAsync(payload);

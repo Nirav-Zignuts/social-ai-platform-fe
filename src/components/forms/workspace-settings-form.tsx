@@ -80,6 +80,7 @@ export function WorkspaceSettingsForm({
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Leafling NYC"
             required
           />
         </div>

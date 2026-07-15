@@ -434,6 +434,7 @@ export function ReviewActions({
                 value={editCaption}
                 onChange={(e) => setEditCaption(e.target.value)}
                 rows={4}
+                placeholder="Write the caption that will go live"
               />
             </div>
             <div className="space-y-2">
@@ -441,6 +442,7 @@ export function ReviewActions({
               <Input
                 value={editHashtags}
                 onChange={(e) => setEditHashtags(e.target.value)}
+                placeholder="houseplants, plantcare, leafling"
               />
             </div>
             <div className="space-y-2">
@@ -448,6 +450,7 @@ export function ReviewActions({
               <Input
                 value={editCta}
                 onChange={(e) => setEditCta(e.target.value)}
+                placeholder="e.g. Book a free plant hospital visit"
               />
             </div>
           </div>

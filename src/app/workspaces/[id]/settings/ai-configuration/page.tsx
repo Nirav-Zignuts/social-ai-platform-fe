@@ -51,6 +51,7 @@ export default function AIConfigurationSettingsPage({ params }: PageProps) {
             <Skeleton className="h-64 w-full rounded-lg" />
           ) : (
             <AIConfigurationForm
+              key={workspaceId}
               initialData={data?.ai_configuration}
               onSubmit={async (payload) => {
                 await mutation.mutateAsync(payload);

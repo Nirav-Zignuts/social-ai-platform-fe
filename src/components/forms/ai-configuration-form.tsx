@@ -127,6 +127,7 @@ export function AIConfigurationForm({
             max={30}
             value={hashtagCount}
             onChange={(e) => setHashtagCount(e.target.value)}
+            placeholder="e.g. 8"
           />
         </div>
         <div className="space-y-2">
@@ -170,7 +171,7 @@ export function AIConfigurationForm({
           value={customInstructions}
           onChange={(e) => setCustomInstructions(e.target.value)}
           rows={4}
-          placeholder="Any additional instructions for the AI..."
+          placeholder="e.g. Always mention our free plant hospital — never use medical claims"
         />
       </div>
       <Button type="submit" disabled={isSubmitting}>

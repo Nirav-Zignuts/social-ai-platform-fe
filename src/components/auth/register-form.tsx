@@ -82,6 +82,7 @@ export function RegisterForm() {
               id="full_name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
+              placeholder="Jane Operator"
               required
               minLength={2}
             />
@@ -93,6 +94,7 @@ export function RegisterForm() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
               required
             />
           </div>
@@ -103,6 +105,7 @@ export function RegisterForm() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
               required
               minLength={8}
             />
