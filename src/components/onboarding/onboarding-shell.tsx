@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils";
  */
 export function OnboardingShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
 
   const { data } = useQuery({
     queryKey: ["workspaces"],
@@ -21,14 +23,27 @@ export function OnboardingShell({ children }: { children: React.ReactNode }) {
     refetchOnWindowFocus: false,
   });
 
-  const hasWorkspaces = (data?.workspaces.length ?? 0) > 0;
+  const workspaces = data?.workspaces ?? [];
+  const hasWorkspaces = workspaces.length > 0;
+  const onboardingWorkspaceId =
+    pathname.match(/^\/onboarding\/([^/]+)/)?.[1] ?? null;
+  const completedWorkspace = workspaces.find(
+    (w) => w.onboarding_status === "completed",
+  );
+
+  // Prefer a finished workspace for "Dashboard"; incomplete ones redirect back.
+  const dashboardHref = completedWorkspace
+    ? `/dashboard?workspace=${completedWorkspace.id}`
+    : onboardingWorkspaceId
+      ? `/dashboard?workspace=${onboardingWorkspaceId}`
+      : "/dashboard";
 
   return (
     <div className="min-h-screen bg-bg-base text-text-primary">
       <header className="border-b border-border-subtle bg-bg-surface/80 backdrop-blur-sm">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link
-            href={hasWorkspaces ? "/dashboard" : "/onboarding"}
+            href={hasWorkspaces ? dashboardHref : "/onboarding"}
             className="text-sm font-semibold tracking-tight"
           >
             Social AI
@@ -36,7 +51,7 @@ export function OnboardingShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2 sm:gap-3">
             {hasWorkspaces && (
               <Link
-                href="/dashboard"
+                href={dashboardHref}
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "text-text-secondary",

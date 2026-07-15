@@ -20,6 +20,7 @@ export type OnboardingStatus =
   | "profile_added"
   | "knowledge_added"
   | "ai_configured"
+  | "instagram_connected"
   | "completed";
 
 export interface Workspace {

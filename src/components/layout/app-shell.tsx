@@ -25,10 +25,12 @@ import {
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { getCurrentPlanId, isAtWorkspaceLimit } from "@/lib/plans";
+import { getOnboardingResumePath } from "@/lib/onboarding";
 import {
   buildWorkspaceSwitchHref,
   resolveActiveWorkspaceId,
   storeWorkspaceId,
+  workspaceNeedsOnboarding,
 } from "@/lib/workspace-routing";
 import { WorkspaceUsageChip } from "@/components/billing/workspace-limit-banner";
 import {
@@ -81,6 +83,21 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
     if (wsId) storeWorkspaceId(wsId);
   }, [wsId]);
 
+  // Incomplete onboarding must resume setup — don't linger on app pages.
+  useEffect(() => {
+    if (!selectedWorkspace || !workspaceNeedsOnboarding(selectedWorkspace)) {
+      return;
+    }
+    if (
+      pathname.startsWith("/settings/billing") ||
+      pathname.startsWith("/pricing") ||
+      pathname.startsWith("/onboarding")
+    ) {
+      return;
+    }
+    router.replace(getOnboardingResumePath(selectedWorkspace.id));
+  }, [selectedWorkspace, pathname, router]);
+
   const atWorkspaceLimit = isAtWorkspaceLimit(workspaces.length);
   const onFreePlan = getCurrentPlanId() === "free";
 
@@ -97,10 +114,13 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
 
   const switchWorkspace = (nextWorkspaceId: string) => {
     storeWorkspaceId(nextWorkspaceId);
+    const next = workspaces.find((w) => w.id === nextWorkspaceId);
     const search = searchParams.toString()
       ? `?${searchParams.toString()}`
       : "";
-    const href = buildWorkspaceSwitchHref(pathname, search, nextWorkspaceId);
+    const href = buildWorkspaceSwitchHref(pathname, search, nextWorkspaceId, {
+      onboardingStatus: next?.onboarding_status,
+    });
     router.push(href);
     closeMobileNav();
   };

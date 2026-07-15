@@ -4,14 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowRight, Camera, Sparkles } from "lucide-react";
+import { ArrowRight, Camera, Sparkles, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { useConnectInstagram } from "@/hooks/use-connect-instagram";
 import { isAtWorkspaceLimit } from "@/lib/plans";
 import { WorkspaceLimitBanner } from "@/components/billing/workspace-limit-banner";
 import {
+  getOnboardingResumePath,
   getStepIndexFromQuery,
   getStepIndexFromStatus,
+  isOnboardingComplete,
   ONBOARDING_STEPS,
 } from "@/lib/onboarding";
 import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
@@ -27,7 +29,16 @@ import { AIConfigurationForm } from "@/components/forms/ai-configuration-form";
 import { WorkspaceSettingsForm } from "@/components/forms/workspace-settings-form";
 import { InstagramSetupGuide } from "@/components/instagram/instagram-setup-guide";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { clearOnboardingChatSessionId } from "@/lib/onboarding-chat";
+import { clearStoredWorkspaceId } from "@/lib/workspace-routing";
 import { cn } from "@/lib/utils";
 
 interface OnboardingWizardProps {
@@ -41,6 +52,7 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   const [step, setStep] = useState(0);
   const [workspaceName, setWorkspaceName] = useState("");
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState(workspaceId);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const seededFromStatusRef = useRef(false);
 
   const activeWorkspaceId = createdWorkspaceId ?? workspaceId;
@@ -179,6 +191,39 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
       ? { type: "onboarding", workspaceId: activeWorkspaceId }
       : undefined,
   );
+
+  const deleteWorkspaceMutation = useMutation({
+    mutationFn: () => api.workspaces.delete(activeWorkspaceId!),
+    onSuccess: async () => {
+      if (!activeWorkspaceId) return;
+      clearStoredWorkspaceId(activeWorkspaceId);
+      clearOnboardingChatSessionId(activeWorkspaceId);
+      queryClient.removeQueries({
+        queryKey: ["workspace", activeWorkspaceId],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      toast.success("Workspace deleted");
+      setDeleteOpen(false);
+
+      const remaining = await api.workspaces.list();
+      const next = remaining.workspaces[0];
+      if (!next) {
+        router.replace("/onboarding");
+        return;
+      }
+      if (isOnboardingComplete(next.onboarding_status)) {
+        router.replace(`/dashboard?workspace=${next.id}`);
+      } else {
+        router.replace(getOnboardingResumePath(next.id));
+      }
+    },
+    onError: (e: Error) =>
+      toast.error(
+        e instanceof ApiError ? e.message : "Failed to delete workspace",
+      ),
+  });
+
+  const canDeleteWorkspace = Boolean(activeWorkspaceId) && step >= 1;
 
   if (workspaceId && workspaceLoading) {
     return (
@@ -401,7 +446,70 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
             )}
           </div>
         </section>
+
+        {canDeleteWorkspace && (
+          <div className="rounded-2xl border border-status-rejected/30 bg-status-rejected/5 px-5 py-4 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-status-rejected">
+                  Delete this workspace
+                </p>
+                <p className="mt-1 text-caption">
+                  Cancel setup and remove this workspace and everything created
+                  for it so far.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="destructive"
+                className="shrink-0 gap-2"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                Delete workspace
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this workspace?</DialogTitle>
+            <DialogDescription>
+              Deletes this workspace and all related content from setup. You can
+              create a new workspace afterward.
+            </DialogDescription>
+          </DialogHeader>
+          {workspaceData?.workspace?.name && (
+            <p className="rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-sm text-text-secondary">
+              You&apos;re deleting{" "}
+              <span className="font-medium text-text-primary">
+                {workspaceData.workspace.name}
+              </span>
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteWorkspaceMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteWorkspaceMutation.mutate()}
+              disabled={deleteWorkspaceMutation.isPending}
+            >
+              {deleteWorkspaceMutation.isPending
+                ? "Deleting..."
+                : "Delete workspace"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

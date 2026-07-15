@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Building2,
@@ -11,8 +12,12 @@ import {
   Inbox,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { getOnboardingResumePath } from "@/lib/onboarding";
 import { isAtWorkspaceLimit } from "@/lib/plans";
-import { resolveActiveWorkspaceId } from "@/lib/workspace-routing";
+import {
+  resolveActiveWorkspaceId,
+  workspaceNeedsOnboarding,
+} from "@/lib/workspace-routing";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PostCard, PostCardList } from "@/components/review/post-card";
@@ -21,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 
 export function DashboardContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const workspaceParam = searchParams.get("workspace");
 
@@ -40,10 +46,19 @@ export function DashboardContent() {
   const selectedWorkspace =
     workspaces.find((w) => w.id === activeId) ?? workspaces[0];
 
+  useEffect(() => {
+    if (!selectedWorkspace || !workspaceNeedsOnboarding(selectedWorkspace)) {
+      return;
+    }
+    router.replace(getOnboardingResumePath(selectedWorkspace.id));
+  }, [selectedWorkspace, router]);
+
   const { data: postsData, isLoading: postsLoading } = useQuery({
     queryKey: ["posts", selectedWorkspace?.id],
     queryFn: () => api.posts.list(selectedWorkspace!.id),
-    enabled: Boolean(selectedWorkspace),
+    enabled:
+      Boolean(selectedWorkspace) &&
+      !workspaceNeedsOnboarding(selectedWorkspace),
   });
 
   const posts = postsData?.posts ?? [];
@@ -88,6 +103,18 @@ export function DashboardContent() {
           }}
         />
       </>
+    );
+  }
+
+  if (workspaceNeedsOnboarding(selectedWorkspace)) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-48 w-full rounded-lg" />
+        <p className="text-sm text-text-secondary">
+          Finishing workspace setup…
+        </p>
+      </div>
     );
   }
 

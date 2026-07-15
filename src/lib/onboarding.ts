@@ -67,11 +67,16 @@ const STATUS_TO_STEP_INDEX: Record<OnboardingStatus, number> = {
   profile_added: 2,
   knowledge_added: 3,
   ai_configured: 4,
+  instagram_connected: 5,
   completed: 5,
 };
 
 export function getStepIndexFromStatus(status: OnboardingStatus): number {
   return STATUS_TO_STEP_INDEX[status] ?? 0;
+}
+
+export function getOnboardingResumePath(workspaceId: string): string {
+  return `/onboarding/${workspaceId}`;
 }
 
 export function getStepIndexFromQuery(stepParam: string | null): number | null {

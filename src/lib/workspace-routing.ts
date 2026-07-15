@@ -2,6 +2,9 @@
  * Helpers for keeping the current route when switching workspaces.
  */
 
+import { getOnboardingResumePath, isOnboardingComplete } from "@/lib/onboarding";
+import type { OnboardingStatus, Workspace } from "@/lib/types";
+
 const LAST_WORKSPACE_KEY = "social_ai_last_workspace_id";
 
 export function getStoredWorkspaceId(): string | null {
@@ -35,7 +38,16 @@ export function buildWorkspaceSwitchHref(
   pathname: string,
   search: string,
   newWorkspaceId: string,
+  options?: { onboardingStatus?: OnboardingStatus | string | null },
 ): string {
+  // Incomplete workspaces always resume setup instead of app pages.
+  if (
+    options?.onboardingStatus &&
+    !isOnboardingComplete(options.onboardingStatus as OnboardingStatus)
+  ) {
+    return getOnboardingResumePath(newWorkspaceId);
+  }
+
   const pathWs = getWorkspaceIdFromPathname(pathname);
   if (pathWs) {
     const nextPath = pathname.replace(
@@ -58,6 +70,14 @@ export function buildWorkspaceSwitchHref(
   }
 
   return `/dashboard?workspace=${encodeURIComponent(newWorkspaceId)}`;
+}
+
+/** True when the active workspace still needs onboarding before app use. */
+export function workspaceNeedsOnboarding(
+  workspace: Pick<Workspace, "onboarding_status"> | null | undefined,
+): boolean {
+  if (!workspace?.onboarding_status) return false;
+  return !isOnboardingComplete(workspace.onboarding_status);
 }
 
 export function resolveActiveWorkspaceId(options: {

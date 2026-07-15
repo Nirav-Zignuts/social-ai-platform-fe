@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { MessageSquareText, NotebookPen, Sparkles } from "lucide-react";
 import { BusinessProfileForm } from "@/components/forms/business-profile-form";
 import { OnboardingChatPanel } from "@/components/onboarding/onboarding-chat-panel";
 import {
@@ -17,7 +18,10 @@ import type {
   BusinessProfileUpsert,
   SynthesizedBusinessProfile,
 } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+type ProfileSetupMode = "choose" | "manual" | "chat";
 
 interface BusinessProfileStepProps {
   workspaceId: string;
@@ -42,6 +46,12 @@ export function BusinessProfileStep({
   onSubmit,
   isSubmitting,
 }: BusinessProfileStepProps) {
+  const hasExistingProfile = Boolean(
+    initialData?.business_name || initialData?.description,
+  );
+  const [mode, setMode] = useState<ProfileSetupMode>(
+    hasExistingProfile ? "manual" : "choose",
+  );
   const [draftProfile, setDraftProfile] =
     useState<SynthesizedBusinessProfile | null>(null);
   const [forcedSynthesis, setForcedSynthesis] = useState(false);
@@ -112,7 +122,6 @@ export function BusinessProfileStep({
       dismissedFromChat,
     );
 
-    // For dismissed keys, force empty so useStateField clears the input.
     const cleared: BusinessProfileUpsert = { ...fromChat };
     for (const key of dismissedFromChat) {
       if (key === "prohibited_words" || key === "required_keywords") {
@@ -133,6 +142,7 @@ export function BusinessProfileStep({
   }, [collectedFields, dismissedFromChat, draftProfile, initialData]);
 
   const showReviewBanner = Boolean(draftProfile);
+  const chatActive = mode === "chat";
 
   const dismissFromChatField = (fieldKey: string) => {
     setDismissedFromChat((prev) => {
@@ -143,15 +153,113 @@ export function BusinessProfileStep({
     });
   };
 
+  if (mode === "choose") {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-sm font-medium text-text-primary">
+            How do you want to build your profile?
+          </p>
+          <p className="mt-0.5 text-caption">
+            Choose once — chat APIs only start if you pick the AI option.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setMode("chat")}
+            className="group rounded-2xl border border-border-subtle bg-bg-base/40 p-5 text-left transition-colors hover:border-accent/50 hover:bg-bg-surface"
+          >
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+              <Sparkles className="size-5" />
+            </span>
+            <p className="mt-4 text-sm font-medium text-text-primary">
+              Talk it through with AI
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
+              Answer a short chat. We draft your business profile — you review
+              before saving.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent">
+              <MessageSquareText className="size-3.5" />
+              Start AI chat
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMode("manual")}
+            className="group rounded-2xl border border-border-subtle bg-bg-base/40 p-5 text-left transition-colors hover:border-accent/50 hover:bg-bg-surface"
+          >
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-bg-surface-hover text-text-secondary group-hover:text-text-primary">
+              <NotebookPen className="size-5" />
+            </span>
+            <p className="mt-4 text-sm font-medium text-text-primary">
+              Fill the form myself
+            </p>
+            <p className="mt-1.5 text-sm leading-relaxed text-text-secondary">
+              Enter business name, audience, voice, and keywords directly — no
+              chat session started.
+            </p>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary group-hover:text-text-primary">
+              Open profile form
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <p className="text-sm font-medium text-text-primary">
-          Build your business profile
-        </p>
-        <p className="mt-0.5 text-caption">
-          Chat on the left — the form updates as answers are captured.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-text-primary">
+            Build your business profile
+          </p>
+          <p className="mt-0.5 text-caption">
+            {chatActive
+              ? "Chat on the left — the form updates as answers are captured."
+              : "Fill the form, or switch to AI chat if you prefer."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {mode === "manual" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setMode("chat")}
+            >
+              <Sparkles className="size-3.5" />
+              Switch to AI chat
+            </Button>
+          )}
+          {mode === "chat" && !draftProfile && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setMode("manual")}
+            >
+              <NotebookPen className="size-3.5" />
+              Use form only
+            </Button>
+          )}
+          {!draftProfile && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setMode("choose")}
+            >
+              Change preference
+            </Button>
+          )}
+        </div>
       </div>
 
       {showReviewBanner && draftProfile && (
@@ -179,23 +287,38 @@ export function BusinessProfileStep({
         </div>
       )}
 
-      <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)]">
-        <OnboardingChatPanel
-          workspaceId={workspaceId}
-          className="h-[min(70vh,720px)] max-h-[min(70vh,720px)] w-full"
-          onCollectedFieldsChange={handleCollectedFieldsChange}
-          onComplete={(profile, forced) => {
-            setDraftProfile(profile);
-            setForcedSynthesis(forced);
-            const nextFields = synthesizedProfileToUpsert(profile);
-            setCollectedFields(nextFields);
-            restoreDismissedForUpdatedChatValues(
-              nextFields as Record<string, unknown>,
-            );
-          }}
-        />
+      <div
+        className={cn(
+          "grid items-stretch gap-5",
+          chatActive &&
+            "lg:grid-cols-[minmax(0,0.45fr)_minmax(0,0.55fr)]",
+        )}
+      >
+        {chatActive && (
+          <OnboardingChatPanel
+            workspaceId={workspaceId}
+            className="h-[min(70vh,720px)] max-h-[min(70vh,720px)] w-full"
+            onCollectedFieldsChange={handleCollectedFieldsChange}
+            onComplete={(profile, forced) => {
+              setDraftProfile(profile);
+              setForcedSynthesis(forced);
+              const nextFields = synthesizedProfileToUpsert(profile);
+              setCollectedFields(nextFields);
+              restoreDismissedForUpdatedChatValues(
+                nextFields as Record<string, unknown>,
+              );
+            }}
+          />
+        )}
 
-        <div className="flex h-[min(70vh,720px)] max-h-[min(70vh,720px)] min-h-0 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-base/30">
+        <div
+          className={cn(
+            "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-base/30",
+            chatActive
+              ? "h-[min(70vh,720px)] max-h-[min(70vh,720px)]"
+              : "min-h-0",
+          )}
+        >
           <div className="shrink-0 border-b border-border-subtle px-4 py-3 sm:px-5">
             <p className="text-sm font-medium text-text-primary">
               {draftProfile ? "Review & save" : "Profile form"}
@@ -203,18 +326,22 @@ export function BusinessProfileStep({
             <p className="mt-0.5 text-caption">
               {draftProfile
                 ? "Tweak the draft from chat, then continue."
-                : "Fields marked ✨ from chat were filled by the conversation."}
+                : chatActive
+                  ? "Fields marked ✨ from chat were filled by the conversation."
+                  : "Complete the fields below, then continue."}
             </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
             <BusinessProfileForm
               initialData={formInitial}
-              fromChatFields={fromChatFields}
+              fromChatFields={chatActive ? fromChatFields : undefined}
               highlightedFields={
                 draftProfile ? highlightedFields : undefined
               }
               synthesisNotes={draftProfile?.synthesis_notes}
-              onDismissFromChatField={dismissFromChatField}
+              onDismissFromChatField={
+                chatActive ? dismissFromChatField : undefined
+              }
               onSubmit={onSubmit}
               isSubmitting={isSubmitting}
               submitLabel={
