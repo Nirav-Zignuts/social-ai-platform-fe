@@ -231,20 +231,25 @@ export interface PostInsights {
 
 export type ConnectedAccountStatus = "connected" | "disconnected" | "error";
 
+/** Shape returned by GET /workspaces/:id/instagram → data.account */
 export interface ConnectedAccount {
   id: string;
-  workspace_id: string;
+  workspace_id?: string;
   provider: string;
-  provider_account_id: string;
+  provider_account_id?: string;
   provider_username: string | null;
   display_name: string | null;
   page_id: string | null;
+  page_name: string | null;
   instagram_business_account_id: string | null;
+  profile_picture_url?: string | null;
   status: ConnectedAccountStatus;
   connected_at: string;
   expires_at: string | null;
-  created_at: string;
-  updated_at: string;
+  token_expired?: boolean;
+  expires_in_seconds?: number | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface InstagramAccountMetrics {

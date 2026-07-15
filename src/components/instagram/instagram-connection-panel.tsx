@@ -37,9 +37,39 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-function tokenExpiryLabel(expiresAt: string | null) {
-  if (!expiresAt) return { label: "No expiry on file", tone: "muted" as const };
-  const date = new Date(expiresAt);
+function tokenExpiryLabel(account: ConnectedAccount) {
+  if (account.token_expired) {
+    return { label: "Expired — reconnect required", tone: "danger" as const };
+  }
+
+  if (
+    typeof account.expires_in_seconds === "number" &&
+    account.expires_in_seconds > 0
+  ) {
+    const days = Math.floor(account.expires_in_seconds / 86_400);
+    if (days < 14) {
+      return {
+        label: `Expires in ${days} day${days === 1 ? "" : "s"}`,
+        tone: "warn" as const,
+      };
+    }
+    if (account.expires_at) {
+      return {
+        label: `Valid until ${format(new Date(account.expires_at), "MMM d, yyyy")}`,
+        tone: "ok" as const,
+      };
+    }
+    return {
+      label: `Valid for ~${days} days`,
+      tone: "ok" as const,
+    };
+  }
+
+  if (!account.expires_at) {
+    return { label: "No expiry on file", tone: "muted" as const };
+  }
+
+  const date = new Date(account.expires_at);
   const msLeft = date.getTime() - Date.now();
   if (Number.isNaN(msLeft)) {
     return { label: "Unknown", tone: "muted" as const };
@@ -114,15 +144,18 @@ function ConnectedAccountCard({
   const handle = metrics?.username || account.provider_username;
   const username = handle ? `@${handle}` : null;
   const profileUrl = handle ? `https://instagram.com/${handle}` : null;
-  const expiry = tokenExpiryLabel(account.expires_at);
+  const avatarUrl =
+    metrics?.profile_picture_url || account.profile_picture_url || null;
+  const expiry = tokenExpiryLabel(account);
   const statusTone =
     account.status === "connected"
-      ? expiry.tone === "danger"
+      ? expiry.tone === "danger" || account.token_expired
         ? "danger"
         : "ok"
       : account.status === "error"
         ? "danger"
         : "muted";
+  const pageName = account.page_name?.trim() || null;
 
   const overviewMetrics = [
     {
@@ -147,12 +180,13 @@ function ConnectedAccountCard({
 
   const detailCards = [
     {
-      label: "Connected",
+      label: "Connected since",
       value: account.connected_at
         ? format(new Date(account.connected_at), "MMM d, yyyy")
         : "—",
       icon: Link2,
       tone: "ok" as const,
+      hint: undefined as string | undefined,
     },
     {
       label: "Access token",
@@ -163,14 +197,20 @@ function ConnectedAccountCard({
           ? ("danger" as const)
           : expiry.tone === "warn"
             ? ("warn" as const)
-            : ("default" as const),
+            : ("ok" as const),
+      hint:
+        account.expires_at && !account.token_expired
+          ? `Renew by ${format(new Date(account.expires_at), "MMM d, yyyy")}`
+          : undefined,
     },
     {
       label: "Facebook Page",
-      value: account.page_id ? `…${account.page_id.slice(-8)}` : "—",
-      hint: account.page_id ? "Page ID on file" : undefined,
+      value: pageName || "Not linked",
+      hint: pageName
+        ? "Page linked for Instagram publishing"
+        : "Reconnect to attach a Facebook Page",
       icon: Camera,
-      tone: "default" as const,
+      tone: pageName ? ("default" as const) : ("warn" as const),
     },
   ];
 
@@ -187,17 +227,18 @@ function ConnectedAccountCard({
         />
         <div className="relative flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div className="flex items-start gap-4">
-            <InstagramProfileAvatar
-              src={metrics?.profile_picture_url}
-              name={display}
-            />
+            <InstagramProfileAvatar src={avatarUrl} name={display} />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="truncate text-lg font-medium text-text-primary">
                   {display}
                 </h2>
                 <StatusPill tone={statusTone}>
-                  {account.status === "connected" ? "Connected" : account.status}
+                  {account.token_expired
+                    ? "Token expired"
+                    : account.status === "connected"
+                      ? "Connected"
+                      : account.status}
                 </StatusPill>
               </div>
               {username && profileUrl && (
@@ -210,6 +251,11 @@ function ConnectedAccountCard({
                   {username}
                   <ExternalLink className="size-3.5 opacity-70" />
                 </a>
+              )}
+              {pageName && (
+                <p className="mt-1 text-caption">
+                  Publishing via Facebook Page · {pageName}
+                </p>
               )}
               {metrics?.biography && (
                 <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">
