@@ -319,3 +319,108 @@ export interface Notification {
   } | null;
   created_at: string;
 }
+
+// ─── Analytics ───
+
+export type AnalyticsPeriod = "7d" | "30d" | "90d";
+
+export type AnalyticsTrendMetric = "followers" | "reach" | "engagement_rate";
+
+export type AnalyticsPostsSortBy =
+  | "engagement_rate"
+  | "reach"
+  | "published_at";
+
+export type AnalyticsSortOrder = "asc" | "desc";
+
+export interface AnalyticsProfileSummary {
+  followers: number | null;
+  followers_change: number | null;
+  followers_change_pct: number | null;
+  following: number | null;
+  post_count: number | null;
+}
+
+export interface AnalyticsEngagementSummary {
+  total_likes: number;
+  total_comments: number;
+  total_saves: number;
+  total_shares: number;
+  total_reach: number;
+  avg_engagement_rate: number | null;
+}
+
+export interface BestPerformingPost {
+  post_id: string;
+  caption_preview: string;
+  engagement_rate: number;
+  image_url: string | null;
+}
+
+export interface AnalyticsOverview {
+  period: AnalyticsPeriod;
+  profile: AnalyticsProfileSummary;
+  posts_published_in_period: number;
+  engagement: AnalyticsEngagementSummary;
+  best_performing_post: BestPerformingPost | null;
+}
+
+export interface AnalyticsTrendDataPoint {
+  date: string;
+  value: number;
+}
+
+export interface AnalyticsTrend {
+  metric: AnalyticsTrendMetric;
+  period: AnalyticsPeriod;
+  data_points: AnalyticsTrendDataPoint[];
+}
+
+export interface PostInsightsSummary {
+  likes: number | null;
+  comments: number | null;
+  saves: number | null;
+  shares: number | null;
+  reach: number | null;
+  views: number | null;
+  profile_visitors: number | null;
+  engagement_rate: number | null;
+}
+
+export interface AnalyticsPostItem {
+  post_id: string;
+  caption_preview: string;
+  content_type: string | null;
+  published_at: string | null;
+  image_url: string | null;
+  insights: PostInsightsSummary | null;
+}
+
+export interface AnalyticsPostsResult {
+  total: number;
+  posts: AnalyticsPostItem[];
+}
+
+export interface ContentTypeBreakdownItem {
+  content_type: string;
+  post_count: number;
+  avg_engagement_rate: number | null;
+  avg_reach: number | null;
+}
+
+export interface ContentTypeBreakdown {
+  period: AnalyticsPeriod;
+  breakdown: ContentTypeBreakdownItem[];
+}
+
+export interface QualityCorrelationPoint {
+  post_id: string;
+  reviewer_score: number;
+  engagement_rate: number;
+}
+
+export interface QualityCorrelation {
+  period: AnalyticsPeriod;
+  data_points: QualityCorrelationPoint[];
+  correlation_note: string | null;
+}

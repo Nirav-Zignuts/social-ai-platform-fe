@@ -19,6 +19,15 @@ import type {
   WorkspaceCreate,
   WorkspaceDeleteResult,
   WorkspaceUpdate,
+  AnalyticsOverview,
+  AnalyticsPeriod,
+  AnalyticsPostsResult,
+  AnalyticsPostsSortBy,
+  AnalyticsSortOrder,
+  AnalyticsTrend,
+  AnalyticsTrendMetric,
+  ContentTypeBreakdown,
+  QualityCorrelation,
 } from "./types";
 
 const API_BASE =
@@ -582,6 +591,61 @@ export const api = {
       apiRequest<InstagramDisconnectResult>(
         `/workspaces/${workspaceId}/instagram`,
         { method: "DELETE" },
+      ),
+  },
+
+  analytics: {
+    overview: (workspaceId: string, period: AnalyticsPeriod = "30d") =>
+      apiRequest<AnalyticsOverview>(
+        `/workspaces/${workspaceId}/analytics/overview?period=${period}`,
+      ),
+
+    trend: (
+      workspaceId: string,
+      metric: AnalyticsTrendMetric,
+      period: AnalyticsPeriod = "30d",
+    ) =>
+      apiRequest<AnalyticsTrend>(
+        `/workspaces/${workspaceId}/analytics/trend?metric=${metric}&period=${period}`,
+      ),
+
+    posts: (
+      workspaceId: string,
+      options?: {
+        sortBy?: AnalyticsPostsSortBy;
+        order?: AnalyticsSortOrder;
+        contentType?: string;
+        limit?: number;
+        offset?: number;
+      },
+    ) => {
+      const params = new URLSearchParams();
+      params.set("sort_by", options?.sortBy ?? "published_at");
+      params.set("order", options?.order ?? "desc");
+      params.set("limit", String(options?.limit ?? 20));
+      params.set("offset", String(options?.offset ?? 0));
+      if (options?.contentType) {
+        params.set("content_type", options.contentType);
+      }
+      return apiRequest<AnalyticsPostsResult>(
+        `/workspaces/${workspaceId}/analytics/posts?${params.toString()}`,
+      );
+    },
+
+    contentTypeBreakdown: (
+      workspaceId: string,
+      period: AnalyticsPeriod = "30d",
+    ) =>
+      apiRequest<ContentTypeBreakdown>(
+        `/workspaces/${workspaceId}/analytics/content-type-breakdown?period=${period}`,
+      ),
+
+    qualityCorrelation: (
+      workspaceId: string,
+      period: AnalyticsPeriod = "30d",
+    ) =>
+      apiRequest<QualityCorrelation>(
+        `/workspaces/${workspaceId}/analytics/quality-correlation?period=${period}`,
       ),
   },
 };
