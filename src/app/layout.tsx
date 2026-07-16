@@ -31,7 +31,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} dark h-full`}
     >
-      <body className="min-h-full flex flex-col bg-bg-base text-text-primary">
+      <body
+        className="min-h-full flex flex-col bg-bg-base text-text-primary"
+        suppressHydrationWarning
+      >
         <Providers>
           <InstagramOAuthReturnHandler />
           <AuthGuard>{children}</AuthGuard>
