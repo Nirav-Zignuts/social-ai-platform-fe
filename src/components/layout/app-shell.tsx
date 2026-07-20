@@ -20,11 +20,19 @@ import {
   X,
   Send,
   CreditCard,
+  Receipt,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
-import { getCurrentPlanId, isAtWorkspaceLimit } from "@/lib/plans";
+import { isAtWorkspaceLimit } from "@/lib/plans";
+import {
+  hasPaidEntitlement,
+  isWorkspaceLocked,
+  listSelectableWorkspaces,
+} from "@/lib/billing";
+import { useBillingStatus } from "@/hooks/useBillingStatus";
 import { getOnboardingResumePath } from "@/lib/onboarding";
 import {
   buildWorkspaceSwitchHref,
@@ -33,6 +41,7 @@ import {
   workspaceNeedsOnboarding,
 } from "@/lib/workspace-routing";
 import { WorkspaceUsageChip } from "@/components/billing/workspace-limit-banner";
+import { WorkspaceSelectActiveDialog } from "@/components/billing/workspace-select-active-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,8 +107,24 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
     router.replace(getOnboardingResumePath(selectedWorkspace.id));
   }, [selectedWorkspace, pathname, router]);
 
-  const atWorkspaceLimit = isAtWorkspaceLimit(workspaces.length);
-  const onFreePlan = getCurrentPlanId() === "free";
+  const { data: billingStatus } = useBillingStatus();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const workspaceLimit = billingStatus?.workspace_limit ?? 2;
+  const visibleWorkspaces = listSelectableWorkspaces(workspaces);
+  const activeWorkspaceCount =
+    billingStatus?.active_workspace_count ??
+    visibleWorkspaces.filter((w) => !isWorkspaceLocked(w)).length;
+  const atWorkspaceLimit = isAtWorkspaceLimit(
+    activeWorkspaceCount,
+    workspaceLimit,
+  );
+  const onFreePlan = !hasPaidEntitlement(billingStatus);
+  const currentLocked = Boolean(
+    selectedWorkspace && isWorkspaceLocked(selectedWorkspace),
+  );
+  const needsWorkspaceSelection = Boolean(
+    billingStatus?.needs_workspace_selection,
+  );
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
@@ -221,26 +246,74 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
       </div>
 
       <div className="border-b border-border-subtle p-3">
-        {workspaces.length > 0 ? (
+        {visibleWorkspaces.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-left text-sm text-text-primary transition-colors duration-150 hover:bg-bg-surface-hover">
-              <span className="truncate font-medium">
-                {selectedWorkspace?.name ?? "Workspace"}
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-medium">
+                  {selectedWorkspace?.name ?? "Workspace"}
+                </span>
+                {currentLocked && (
+                  <span className="shrink-0 rounded-full bg-bg-surface-hover px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-text-secondary">
+                    Locked
+                  </span>
+                )}
               </span>
               <ChevronDown className="size-4 shrink-0 text-text-secondary" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {workspaces.map((ws) => (
-                <DropdownMenuItem
-                  key={ws.id}
-                  onClick={() => switchWorkspace(ws.id)}
-                  className={cn(ws.id === wsId && "bg-bg-surface-hover")}
-                >
-                  {ws.name}
-                </DropdownMenuItem>
-              ))}
+              {visibleWorkspaces.map((ws) => {
+                const locked = isWorkspaceLocked(ws);
+                return (
+                  <DropdownMenuItem
+                    key={ws.id}
+                    onClick={() => switchWorkspace(ws.id)}
+                    className={cn(
+                      "flex items-center justify-between gap-2",
+                      ws.id === wsId && "bg-bg-surface-hover",
+                      locked && "opacity-70",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "truncate",
+                        locked && "text-text-secondary",
+                      )}
+                    >
+                      {ws.name}
+                    </span>
+                    {locked ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border-subtle px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-text-secondary">
+                        <Lock className="size-2.5" />
+                        Locked
+                      </span>
+                    ) : null}
+                  </DropdownMenuItem>
+                );
+              })}
+              {(billingStatus?.locked_workspace_count ?? 0) > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      closeMobileNav();
+                      if (needsWorkspaceSelection) {
+                        setPickerOpen(true);
+                      } else {
+                        router.push("/pricing");
+                      }
+                    }}
+                    className="text-accent"
+                  >
+                    <Sparkles className="mr-2 size-4" />
+                    {needsWorkspaceSelection
+                      ? "Choose active workspaces"
+                      : "Upgrade to reactivate"}
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={startCreateWorkspace}>
                 <Plus className="mr-2 size-4" />
@@ -258,7 +331,7 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
             Create workspace
           </button>
         )}
-        <WorkspaceUsageChip workspaceCount={workspaces.length} />
+        <WorkspaceUsageChip workspaceCount={activeWorkspaceCount} />
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
@@ -317,13 +390,26 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
           onClick={closeMobileNav}
           className={cn(
             "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150",
-            pathname.startsWith("/settings/billing")
+            pathname === "/settings/billing"
               ? "bg-bg-surface-hover font-medium text-text-primary"
               : "text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary",
           )}
         >
           <CreditCard className="size-4" />
           Billing
+        </Link>
+        <Link
+          href="/settings/billing/transactions"
+          onClick={closeMobileNav}
+          className={cn(
+            "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150",
+            pathname.startsWith("/settings/billing/transactions")
+              ? "bg-bg-surface-hover font-medium text-text-primary"
+              : "text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary",
+          )}
+        >
+          <Receipt className="size-4" />
+          Billing history
         </Link>
         {wsId && (
           <Link
@@ -358,6 +444,15 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
             >
               <CreditCard className="mr-2 size-4" />
               Billing
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                router.push("/settings/billing/transactions");
+                closeMobileNav();
+              }}
+            >
+              <Receipt className="mr-2 size-4" />
+              Billing history
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -416,9 +511,69 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 py-6 sm:px-6 sm:py-8">
+          {needsWorkspaceSelection && (
+            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex gap-2.5">
+                <Lock className="mt-0.5 size-4 shrink-0 text-accent" />
+                <p className="text-sm text-text-secondary">
+                  <span className="font-medium text-text-primary">
+                    Choose which workspaces stay active.
+                  </span>{" "}
+                  Free allows {workspaceLimit} — pick the ones you want to keep
+                  unlocked.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
+              >
+                Choose workspaces
+              </button>
+            </div>
+          )}
+
+          {currentLocked && !needsWorkspaceSelection && (
+            <div className="mb-6 flex flex-col gap-3 rounded-xl border border-border-subtle bg-bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex gap-2.5">
+                <Lock className="mt-0.5 size-4 shrink-0 text-text-secondary" />
+                <p className="text-sm text-text-secondary">
+                  <span className="font-medium text-text-primary">
+                    This workspace is locked
+                  </span>{" "}
+                  — over your Free plan limit. Upgrade or change which
+                  workspaces are active.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className={cn(
+                    buttonVariants({ size: "sm", variant: "outline" }),
+                  )}
+                >
+                  Manage
+                </button>
+                <Link
+                  href="/pricing"
+                  className={cn(buttonVariants({ size: "sm" }), "text-center")}
+                >
+                  Upgrade to reactivate
+                </Link>
+              </div>
+            </div>
+          )}
+
           {children}
         </main>
       </div>
+
+      <WorkspaceSelectActiveDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        limit={Math.max(1, workspaceLimit ?? 2)}
+      />
     </div>
   );
 }

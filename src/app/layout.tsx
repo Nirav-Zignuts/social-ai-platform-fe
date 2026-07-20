@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
@@ -35,6 +36,10 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-bg-base text-text-primary"
         suppressHydrationWarning
       >
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="lazyOnload"
+        />
         <Providers>
           <InstagramOAuthReturnHandler />
           <AuthGuard>{children}</AuthGuard>

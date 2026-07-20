@@ -1,9 +1,6 @@
 /**
- * Single source of truth for product plans.
- *
- * TODO(billing): Replace getCurrentPlanId() with real subscription state from
- * the backend once Stripe (or equivalent) is wired up. Until then every user
- * is treated as being on the Free plan.
+ * Marketing plan catalog + helpers.
+ * Live entitlement (workspace limits, current plan) comes from GET /billing/status.
  */
 
 export type PlanId = "free" | "pro" | "business";
@@ -25,7 +22,7 @@ export const PLANS = [
     id: "free",
     name: "Free",
     price: 0,
-    priceLabel: "$0",
+    priceLabel: "₹0",
     billingPeriod: null,
     workspaceLimit: 2,
     features: [
@@ -43,7 +40,7 @@ export const PLANS = [
     id: "pro",
     name: "Pro",
     price: 29,
-    priceLabel: "$29",
+    priceLabel: "₹29",
     billingPeriod: "/month",
     workspaceLimit: 10,
     features: [
@@ -52,7 +49,7 @@ export const PLANS = [
       "AI-generated posts with human review",
       "Unlimited knowledge base documents",
       "Priority support",
-      "Advanced analytics (coming soon)",
+      "Advanced analytics",
     ],
     cta: "Upgrade to Pro",
     highlighted: true,
@@ -80,7 +77,7 @@ export const PRICING_FAQ = [
   {
     question: "Can I change plans later?",
     answer:
-      "Yes. You can upgrade or downgrade at any time. When billing goes live, changes will apply to your next billing cycle.",
+      "Yes. You can upgrade to Pro anytime from Pricing or Billing settings. Cancelling Pro keeps access until the end of the paid period, then you return to Free.",
   },
   {
     question: "What happens if I exceed my workspace limit?",
@@ -90,21 +87,16 @@ export const PRICING_FAQ = [
   {
     question: "Do you offer refunds?",
     answer:
-      "We’ll publish a clear refund policy with paid billing. For early access conversations, reach out and we’ll help case by case.",
+      "Reach out to support if something went wrong with a charge — we’ll help case by case while we publish a formal refund policy.",
   },
   {
     question: "Is there a free trial for Pro?",
     answer:
-      "Not yet. While billing is in preview, Free remains available so you can evaluate the product. Pro early access will open soon.",
+      "Not yet. Start on Free with two workspaces, then upgrade to Pro when you need more room.",
   },
 ] as const;
 
-/** TODO(billing): read from authenticated user / subscription API. */
-export function getCurrentPlanId(): PlanId {
-  return "free";
-}
-
-export function getPlan(planId: PlanId = getCurrentPlanId()): Plan {
+export function getPlan(planId: PlanId | string): Plan {
   const plan = PLANS.find((item) => item.id === planId);
   if (!plan) {
     return PLANS[0];
@@ -112,42 +104,38 @@ export function getPlan(planId: PlanId = getCurrentPlanId()): Plan {
   return plan;
 }
 
-export function getWorkspaceLimit(
-  planId: PlanId = getCurrentPlanId(),
-): number | null {
-  return getPlan(planId).workspaceLimit;
-}
-
-/** True when the user cannot create another workspace on their plan. */
+/** True when the user cannot create another workspace given a live limit. */
 export function isAtWorkspaceLimit(
   workspaceCount: number,
-  planId: PlanId = getCurrentPlanId(),
+  workspaceLimit: number | null | undefined,
 ): boolean {
-  const limit = getWorkspaceLimit(planId);
-  if (limit == null) return false;
-  return workspaceCount >= limit;
+  if (workspaceLimit == null) return false;
+  return workspaceCount >= workspaceLimit;
 }
 
-/**
- * Show a small usage chip only when the user is at their limit.
- * Avoid clutter while they still have room (e.g. 0–1 of 2 on Free).
- */
 export function shouldShowWorkspaceUsage(
   workspaceCount: number,
-  planId: PlanId = getCurrentPlanId(),
+  workspaceLimit: number | null | undefined,
 ): boolean {
-  const limit = getWorkspaceLimit(planId);
-  if (limit == null || limit <= 0) return false;
-  return workspaceCount >= limit;
+  if (workspaceLimit == null || workspaceLimit <= 0) return false;
+  return workspaceCount >= workspaceLimit;
 }
 
 export function formatWorkspaceUsage(
   workspaceCount: number,
-  planId: PlanId = getCurrentPlanId(),
+  workspaceLimit: number | null | undefined,
 ): string {
-  const limit = getWorkspaceLimit(planId);
-  if (limit == null) {
-    return `${workspaceCount} workspaces`;
+  if (workspaceLimit == null) {
+    return `${workspaceCount} workspaces (Unlimited)`;
   }
-  return `${workspaceCount} / ${limit} workspaces used`;
+  return `${workspaceCount} / ${workspaceLimit} workspaces used`;
+}
+
+export function formatBillingPeriodDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }

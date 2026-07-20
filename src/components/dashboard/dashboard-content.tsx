@@ -7,6 +7,7 @@ import { Building2 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { getOnboardingResumePath } from "@/lib/onboarding";
 import { isAtWorkspaceLimit } from "@/lib/plans";
+import { useBillingStatus } from "@/hooks/useBillingStatus";
 import {
   resolveActiveWorkspaceId,
   workspaceNeedsOnboarding,
@@ -109,11 +110,17 @@ export function DashboardContent() {
     refetchOnWindowFocus: false,
   });
 
+  const { data: billingStatus } = useBillingStatus();
+
   const pendingPosts = pendingPostsData?.posts ?? [];
   const periodFetching =
     overviewQuery.isFetching ||
     trendQuery.isFetching ||
     breakdownQuery.isFetching;
+  const atLimit = isAtWorkspaceLimit(
+    workspaces.length,
+    billingStatus?.workspace_limit ?? 2,
+  );
 
   const handlePeriodChange = (next: AnalyticsPeriod) => {
     setPeriod(next);
@@ -177,7 +184,6 @@ export function DashboardContent() {
   }
 
   const wsId = selectedWorkspace!.id;
-  const atLimit = isAtWorkspaceLimit(workspaces.length);
 
   return (
     <div className="space-y-8">

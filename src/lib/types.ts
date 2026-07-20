@@ -424,3 +424,120 @@ export interface QualityCorrelation {
   data_points: QualityCorrelationPoint[];
   correlation_note: string | null;
 }
+
+// ─── Billing ───
+
+export type BillingPlanKey = "free" | "pro" | "business";
+
+export type BillingSubscriptionStatus =
+  | "active"
+  | "past_due"
+  | "cancelled"
+  | "expired"
+  | string;
+
+export interface BillingPlanSummary {
+  plan_key: BillingPlanKey | string;
+  name: string;
+  price_inr: number | null;
+  workspace_limit: number | null;
+}
+
+export interface BillingStatus {
+  plan: BillingPlanSummary;
+  status: BillingSubscriptionStatus;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  workspace_count: number;
+  workspace_limit: number | null;
+  active_workspace_count?: number;
+  locked_workspace_count?: number;
+  needs_workspace_selection?: boolean;
+  razorpay_subscription_id: string | null;
+}
+
+export interface BillingCheckoutPrefill {
+  name?: string;
+  email?: string;
+  contact?: string;
+}
+
+export interface BillingCheckoutSession {
+  subscription_id: string;
+  key_id: string;
+  plan_key: string;
+  plan_name: string;
+  prefill: BillingCheckoutPrefill;
+}
+
+export interface BillingCancelResult {
+  status: string;
+  cancel_at_period_end: boolean;
+  current_period_end: string | null;
+}
+
+export interface BillingSelectActiveResult {
+  active_workspace_ids: string[];
+  locked_workspace_ids: string[];
+  active: number;
+  locked: number;
+  limit: number | null;
+}
+
+export type WorkspaceStatus =
+  | "active"
+  | "locked_over_limit"
+  | "deleted"
+  | string;
+
+export interface BillingPaymentMethod {
+  number?: string | null;
+  type?: string | null;
+  issuer?: string | null;
+  network?: string | null;
+}
+
+export interface BillingSubscriptionEntity {
+  id?: string | null;
+  status?: string | null;
+  end_at?: number | null;
+  current_end?: number | null;
+  notes?: {
+    user_id?: string | null;
+    plan_key?: string | null;
+  } | null;
+}
+
+export interface BillingPaymentEvent {
+  id: string;
+  user_id: string | null;
+  razorpay_event_id: string | null;
+  event_type: string;
+  name?: string | null;
+  status?: string | null;
+  /** Amount in paise (minor units). */
+  amount?: number | null;
+  currency?: string | null;
+  entity?: BillingSubscriptionEntity | null;
+  payment_method?: BillingPaymentMethod | null;
+  processed_at: string | null;
+  created_at: string | null;
+  raw_payload?: Record<string, unknown> | null;
+}
+
+export interface BillingTransactionsPage {
+  items: BillingPaymentEvent[];
+  total_items: number;
+  current_page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export type BillingTransactionsQuery = {
+  eventTypes?: string[];
+  processed?: boolean | null;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+};

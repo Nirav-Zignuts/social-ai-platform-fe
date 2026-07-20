@@ -28,6 +28,12 @@ import type {
   AnalyticsTrendMetric,
   ContentTypeBreakdown,
   QualityCorrelation,
+  BillingCancelResult,
+  BillingCheckoutSession,
+  BillingSelectActiveResult,
+  BillingStatus,
+  BillingTransactionsPage,
+  BillingTransactionsQuery,
 } from "./types";
 
 const API_BASE =
@@ -647,5 +653,47 @@ export const api = {
       apiRequest<QualityCorrelation>(
         `/workspaces/${workspaceId}/analytics/quality-correlation?period=${period}`,
       ),
+  },
+
+  billing: {
+    status: () => apiRequest<BillingStatus>("/billing/status"),
+
+    subscribe: (planKey: string) =>
+      apiRequest<BillingCheckoutSession>("/billing/subscribe", {
+        method: "POST",
+        body: { plan_key: planKey },
+      }),
+
+    cancel: (payload?: { immediate?: boolean }) =>
+      apiRequest<BillingCancelResult>("/billing/cancel", {
+        method: "POST",
+        body: { immediate: payload?.immediate ?? false },
+      }),
+
+    selectActiveWorkspaces: (workspaceIds: string[]) =>
+      apiRequest<BillingSelectActiveResult>(
+        "/billing/workspaces/select-active",
+        {
+          method: "POST",
+          body: { workspace_ids: workspaceIds },
+        },
+      ),
+
+    transactions: (query: BillingTransactionsQuery = {}) => {
+      const params = new URLSearchParams();
+      for (const eventType of query.eventTypes ?? []) {
+        params.append("event_type", eventType);
+      }
+      if (query.processed === true) params.set("processed", "true");
+      if (query.processed === false) params.set("processed", "false");
+      if (query.dateFrom) params.set("date_from", query.dateFrom);
+      if (query.dateTo) params.set("date_to", query.dateTo);
+      params.set("page", String(query.page ?? 1));
+      params.set("page_size", String(query.pageSize ?? 25));
+      const qs = params.toString();
+      return apiRequest<BillingTransactionsPage>(
+        `/billing/transactions${qs ? `?${qs}` : ""}`,
+      );
+    },
   },
 };

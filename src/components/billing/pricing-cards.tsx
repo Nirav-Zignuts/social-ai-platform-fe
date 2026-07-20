@@ -2,9 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PLANS, type Plan } from "@/lib/plans";
+import { getEffectivePlanKey } from "@/lib/billing";
+import { useAuth } from "@/hooks/use-auth";
+import { useBillingStatus } from "@/hooks/useBillingStatus";
+import { useRazorpayCheckout } from "@/hooks/useRazorpayCheckout";
+import { SubscriptionConfirmDialog } from "@/components/billing/subscription-confirm-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,15 +25,39 @@ import { cn } from "@/lib/utils";
 
 function PlanCta({
   plan,
-  onRequestAccess,
+  effectivePlanKey,
+  isAuthenticated,
+  onUpgradePro,
+  onContactSales,
+  upgrading,
+  checkoutUnavailable,
 }: {
   plan: Plan;
-  onRequestAccess: (plan: Plan) => void;
+  effectivePlanKey: string;
+  isAuthenticated: boolean;
+  onUpgradePro: () => void;
+  onContactSales: () => void;
+  upgrading: boolean;
+  checkoutUnavailable: boolean;
 }) {
   if (plan.id === "free") {
+    if (isAuthenticated && effectivePlanKey === "free") {
+      return (
+        <Button className="w-full" variant="outline" disabled>
+          Current plan
+        </Button>
+      );
+    }
+    if (isAuthenticated) {
+      return (
+        <Button className="w-full" variant="outline" disabled>
+          Included
+        </Button>
+      );
+    }
     return (
       <Link
-        href="/register"
+        href="/register?redirect=/pricing"
         className={cn(buttonVariants({ variant: "outline" }), "w-full")}
       >
         Get started free
@@ -36,26 +65,72 @@ function PlanCta({
     );
   }
 
+  if (plan.id === "pro") {
+    if (isAuthenticated && effectivePlanKey === "pro") {
+      return (
+        <Button className="w-full" disabled>
+          Current plan
+        </Button>
+      );
+    }
+    if (!isAuthenticated) {
+      return (
+        <Link
+          href="/login?redirect=/pricing"
+          className={cn(buttonVariants(), "w-full text-center")}
+        >
+          Upgrade to Pro
+        </Link>
+      );
+    }
+    return (
+      <Button
+        className="w-full gap-2"
+        disabled={upgrading || checkoutUnavailable}
+        onClick={onUpgradePro}
+      >
+        {upgrading ? (
+          <>
+            <Loader2 className="size-4 animate-spin" />
+            Starting checkout…
+          </>
+        ) : checkoutUnavailable ? (
+          "Checkout unavailable — refresh"
+        ) : (
+          "Upgrade to Pro"
+        )}
+      </Button>
+    );
+  }
+
+  // Business — contact sales
   return (
     <Button
       className="w-full"
-      variant={plan.highlighted ? "default" : "outline"}
-      onClick={() => onRequestAccess(plan)}
+      variant="outline"
+      onClick={onContactSales}
     >
-      {plan.cta}
+      Contact Sales
     </Button>
   );
 }
 
 export function PricingCards({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const billingQuery = useBillingStatus(isAuthenticated);
+  const {
+    openCheckout,
+    isLoading: upgrading,
+    confirmPhase,
+    checkoutUnavailable,
+    dismissConfirmPhase,
+    refreshBillingStatus,
+  } = useRazorpayCheckout({ redirectTo: "/dashboard" });
+
+  const [salesOpen, setSalesOpen] = useState(false);
   const [email, setEmail] = useState("");
 
-  const requestAccess = (plan: Plan) => {
-    setSelectedPlan(plan);
-    setOpen(true);
-  };
+  const currentPlanKey = getEffectivePlanKey(billingQuery.data);
 
   return (
     <>
@@ -113,40 +188,52 @@ export function PricingCards({ className }: { className?: string }) {
             </ul>
 
             <div className="mt-8">
-              <PlanCta plan={plan} onRequestAccess={requestAccess} />
+              {!authLoading && (
+                <PlanCta
+                  plan={plan}
+                  effectivePlanKey={currentPlanKey}
+                  isAuthenticated={isAuthenticated}
+                  upgrading={upgrading}
+                  checkoutUnavailable={checkoutUnavailable}
+                  onUpgradePro={() => openCheckout("pro")}
+                  onContactSales={() => setSalesOpen(true)}
+                />
+              )}
             </div>
           </article>
         ))}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <SubscriptionConfirmDialog
+        phase={confirmPhase}
+        onDismiss={dismissConfirmPhase}
+        onRefresh={() => void refreshBillingStatus()}
+        refreshing={confirmPhase === "confirming"}
+      />
+
+      <Dialog open={salesOpen} onOpenChange={setSalesOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Billing isn’t live yet</DialogTitle>
+            <DialogTitle>Contact Sales</DialogTitle>
             <DialogDescription>
-              This is a preview of our upcoming{" "}
-              {selectedPlan?.name ?? "paid"} plan. Leave your email if you want
-              early access when payments open.
+              Business is sold with a dedicated account manager. Leave your
+              email and we&apos;ll reach out about custom pricing and onboarding.
             </DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              // Preview-only: no backend. Logged for handoff / QA.
-              console.log("[early-access]", {
-                email,
-                plan: selectedPlan?.id,
-              });
-              toast.success("Thanks — we’ll be in touch when billing opens.");
+              console.log("[contact-sales]", { email, plan: "business" });
+              toast.success("Thanks — our team will be in touch.");
               setEmail("");
-              setOpen(false);
+              setSalesOpen(false);
             }}
           >
             <div className="space-y-2">
-              <Label htmlFor="early-access-email">Email</Label>
+              <Label htmlFor="sales-email">Work email</Label>
               <Input
-                id="early-access-email"
+                id="sales-email"
                 type="email"
                 required
                 autoComplete="email"
@@ -156,10 +243,14 @@ export function PricingCards({ className }: { className?: string }) {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSalesOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit">Request early access</Button>
+              <Button type="submit">Request contact</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import {
-  formatWorkspaceUsage,
-  getPlan,
-  isAtWorkspaceLimit,
-} from "@/lib/plans";
+import { isAtWorkspaceLimit, formatWorkspaceUsage } from "@/lib/plans";
+import { useBillingStatus } from "@/hooks/useBillingStatus";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,10 +12,15 @@ export function WorkspaceLimitBanner({
 }: {
   workspaceCount: number;
 }) {
-  if (!isAtWorkspaceLimit(workspaceCount)) return null;
+  const { data } = useBillingStatus();
+  const limit = data?.workspace_limit ?? 2;
+  const planName =
+    data && (data.status === "cancelled" || data.status === "expired")
+      ? "Free"
+      : (data?.plan.name ?? "Free");
+  const count = data?.active_workspace_count ?? workspaceCount;
 
-  const plan = getPlan();
-  const limit = plan.workspaceLimit;
+  if (!isAtWorkspaceLimit(count, limit)) return null;
 
   return (
     <div className="rounded-xl border border-accent/30 bg-accent/10 px-5 py-4">
@@ -29,8 +31,8 @@ export function WorkspaceLimitBanner({
           </span>
           <div>
             <p className="text-sm font-medium text-text-primary">
-              You’ve reached your workspace limit ({limit}/{limit}) on the{" "}
-              {plan.name} plan
+              You&apos;ve reached your workspace limit ({limit}/{limit}) on the{" "}
+              {planName} plan
             </p>
             <p className="mt-1 text-sm text-text-secondary">
               Upgrade to Pro for up to 10 workspaces. Your existing workspaces
@@ -54,11 +56,15 @@ export function WorkspaceUsageChip({
 }: {
   workspaceCount: number;
 }) {
-  if (!isAtWorkspaceLimit(workspaceCount)) return null;
+  const { data } = useBillingStatus();
+  const limit = data?.workspace_limit ?? 2;
+  const count = data?.active_workspace_count ?? workspaceCount;
+
+  if (!isAtWorkspaceLimit(count, limit)) return null;
 
   return (
     <p className="mt-2 px-1 text-[11px] text-text-secondary">
-      {formatWorkspaceUsage(workspaceCount)}
+      {formatWorkspaceUsage(count, limit)}
     </p>
   );
 }

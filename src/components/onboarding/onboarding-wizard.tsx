@@ -8,6 +8,7 @@ import { ArrowRight, Camera, Sparkles, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { useConnectInstagram } from "@/hooks/use-connect-instagram";
 import { isAtWorkspaceLimit } from "@/lib/plans";
+import { useBillingStatus } from "@/hooks/useBillingStatus";
 import { WorkspaceLimitBanner } from "@/components/billing/workspace-limit-banner";
 import {
   getOnboardingResumePath,
@@ -109,11 +110,14 @@ export function OnboardingWizard({ workspaceId }: OnboardingWizardProps) {
   });
 
   const workspaceCount = workspacesData?.workspaces.length ?? 0;
-  const atCreateLimit = !workspaceId && isAtWorkspaceLimit(workspaceCount);
+  const { data: billingStatus } = useBillingStatus(!workspaceId);
+  const workspaceLimit = billingStatus?.workspace_limit ?? 2;
+  const atCreateLimit =
+    !workspaceId && isAtWorkspaceLimit(workspaceCount, workspaceLimit);
 
   const createWorkspaceMutation = useMutation({
     mutationFn: () => {
-      if (isAtWorkspaceLimit(workspaceCount)) {
+      if (isAtWorkspaceLimit(workspaceCount, workspaceLimit)) {
         throw new Error("Workspace limit reached on your current plan.");
       }
       return api.workspaces.create({ name: workspaceName });
