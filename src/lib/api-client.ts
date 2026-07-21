@@ -37,7 +37,7 @@ import type {
 } from "./types";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ?? "https://social-ai-platform-3kb9.onrender.com/api/v1";
 
 export function getGoogleLoginUrl(options?: { postAuthRedirect?: string }): string {
   const loginUrl = new URL("/login", typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
