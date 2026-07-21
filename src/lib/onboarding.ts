@@ -95,5 +95,5 @@ export function getStepIndexFromQuery(stepParam: string | null): number | null {
 }
 
 export function isOnboardingComplete(status: OnboardingStatus): boolean {
-  return status === "completed";
+  return status === "completed" || status === "ai_configured";
 }

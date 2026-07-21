@@ -546,15 +546,6 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPickerOpen(true)}
-                  className={cn(
-                    buttonVariants({ size: "sm", variant: "outline" }),
-                  )}
-                >
-                  Manage
-                </button>
                 <Link
                   href="/pricing"
                   className={cn(buttonVariants({ size: "sm" }), "text-center")}

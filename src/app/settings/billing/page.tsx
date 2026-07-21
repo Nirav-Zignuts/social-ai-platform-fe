@@ -83,10 +83,13 @@ export default function BillingSettingsPage() {
   const usageRatio =
     limit == null || limit <= 0 ? 0 : Math.min(1, workspaceCount / limit);
   const periodLabel = formatBillingPeriodDate(data?.current_period_end);
-  const canCancel =
-    paidAccess &&
-    data?.plan.plan_key === "pro" &&
-    !data.cancel_at_period_end;
+  // Match backend: any paid Razorpay sub that isn't already cancelled/expired.
+  const canCancel = Boolean(
+    data?.razorpay_subscription_id &&
+      !data.cancel_at_period_end &&
+      data.status !== "cancelled" &&
+      data.status !== "expired",
+  );
   const needsSelection = Boolean(data?.needs_workspace_selection);
   const selectionLimit = Math.max(1, data?.workspace_limit ?? 2);
 
@@ -288,11 +291,20 @@ export default function BillingSettingsPage() {
                 {canCancel && (
                   <Button
                     variant="outline"
+                    className="border-status-rejected/40 text-status-rejected hover:bg-status-rejected/10 hover:text-status-rejected"
                     onClick={() => setCancelOpen(true)}
                   >
                     Cancel subscription
                   </Button>
                 )}
+                {data.cancel_at_period_end &&
+                  data.status !== "cancelled" &&
+                  data.status !== "expired" && (
+                    <p className="max-w-[16rem] text-right text-caption text-status-pending">
+                      Cancellation scheduled
+                      {periodLabel ? ` · ends ${periodLabel}` : ""}
+                    </p>
+                  )}
                 <Link
                   href="/pricing"
                   className={cn(
