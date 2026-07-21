@@ -535,10 +535,18 @@ export const api = {
         { method: "POST", body: { feedback } },
       ),
 
-    regenerate: (workspaceId: string, postId: string, feedback: string) =>
+    regenerate: (
+      workspaceId: string,
+      postId: string,
+      feedback: string,
+      regenerateImage: boolean,
+    ) =>
       apiRequest<{ post: GeneratedPost }>(
         `/workspaces/${workspaceId}/generated-posts/${postId}/review/regenerate`,
-        { method: "POST", body: { feedback } },
+        {
+          method: "POST",
+          body: { feedback, regenerate_image: regenerateImage },
+        },
       ),
 
     skip: (workspaceId: string, postId: string) =>

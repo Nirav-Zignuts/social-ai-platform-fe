@@ -50,6 +50,7 @@ export function ReviewActions({
   const [syncWithInstagram, setSyncWithInstagram] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [regenerateFeedback, setRegenerateFeedback] = useState("");
+  const [regenerateImage, setRegenerateImage] = useState(false);
   const [editCaption, setEditCaption] = useState(post.caption ?? "");
   const [editHashtags, setEditHashtags] = useState(
     (post.hashtags ?? []).join(", "),
@@ -92,12 +93,18 @@ export function ReviewActions({
 
   const regenerateMutation = useMutation({
     mutationFn: () =>
-      api.posts.regenerate(workspaceId, post.id, regenerateFeedback),
+      api.posts.regenerate(
+        workspaceId,
+        post.id,
+        regenerateFeedback,
+        regenerateImage,
+      ),
     onSuccess: () => {
       invalidate();
       toast.success("Regeneration started — refreshing post...");
       setRegenerateOpen(false);
       setRegenerateFeedback("");
+      setRegenerateImage(false);
       const pollInterval = setInterval(() => {
         queryClient.invalidateQueries({
           queryKey: ["post", workspaceId, post.id],
@@ -385,7 +392,13 @@ export function ReviewActions({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={regenerateOpen} onOpenChange={setRegenerateOpen}>
+      <Dialog
+        open={regenerateOpen}
+        onOpenChange={(open) => {
+          setRegenerateOpen(open);
+          if (!open) setRegenerateImage(false);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Regenerate post</DialogTitle>
@@ -400,6 +413,23 @@ export function ReviewActions({
             placeholder="What should be improved?"
             required
           />
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border-subtle bg-bg-base px-3 py-3">
+            <input
+              type="checkbox"
+              checked={regenerateImage}
+              onChange={(event) => setRegenerateImage(event.target.checked)}
+              disabled={regenerateMutation.isPending}
+              className="mt-0.5 size-4 shrink-0 rounded border-border-subtle accent-accent"
+            />
+            <span className="min-w-0">
+              <span className="text-sm font-medium text-text-primary">
+                Regenerate image
+              </span>
+              <span className="mt-0.5 block text-caption">
+                Generate a new image along with the updated post.
+              </span>
+            </span>
+          </label>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateOpen(false)}>
               Cancel
