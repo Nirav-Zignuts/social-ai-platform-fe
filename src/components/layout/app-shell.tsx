@@ -23,8 +23,10 @@ import {
   Receipt,
   Sparkles,
   Lock,
+  Loader2,
+  MessageSquareWarning,
 } from "lucide-react";
-import { api } from "@/lib/api-client";
+import { api, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { isAtWorkspaceLimit } from "@/lib/plans";
 import {
@@ -51,7 +53,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 interface AppShellProps {
@@ -65,6 +77,12 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueMessage, setIssueMessage] = useState("");
+  const [issueStatus, setIssueStatus] = useState<
+    "idle" | "pending" | "error" | "success"
+  >("idle");
+  const [issueError, setIssueError] = useState("");
 
   const { data: workspacesData } = useQuery({
     queryKey: ["workspaces"],
@@ -127,6 +145,39 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
   );
 
   const closeMobileNav = () => setMobileNavOpen(false);
+
+  const openIssueDialog = () => {
+    closeMobileNav();
+    setIssueMessage("");
+    setIssueError("");
+    setIssueStatus("idle");
+    setIssueOpen(true);
+  };
+
+  const submitIssue = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedMessage = issueMessage.trim();
+
+    if (trimmedMessage.length < 10) {
+      setIssueError("Please enter at least 10 characters.");
+      setIssueStatus("error");
+      return;
+    }
+
+    setIssueError("");
+    setIssueStatus("pending");
+    try {
+      await api.support.createIssue({ message: trimmedMessage });
+      setIssueStatus("success");
+    } catch (error) {
+      setIssueError(
+        error instanceof ApiError
+          ? error.message
+          : "We couldn't submit your report. Please try again.",
+      );
+      setIssueStatus("error");
+    }
+  };
 
   const startCreateWorkspace = () => {
     closeMobileNav();
@@ -426,6 +477,14 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
             Notifications
           </Link>
         )}
+        <button
+          type="button"
+          onClick={openIssueDialog}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-text-secondary transition-colors duration-150 hover:bg-bg-surface-hover hover:text-text-primary"
+        >
+          <MessageSquareWarning className="size-4" />
+          Report an issue
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-text-secondary transition-colors duration-150 hover:bg-bg-surface-hover hover:text-text-primary">
             <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-bg-base text-[10px] font-semibold uppercase text-text-secondary">
@@ -565,6 +624,81 @@ function AppShellInner({ children, workspaceId }: AppShellProps) {
         onOpenChange={setPickerOpen}
         limit={Math.max(1, workspaceLimit ?? 2)}
       />
+
+      <Dialog
+        open={issueOpen}
+        onOpenChange={(open) => {
+          if (!open && issueStatus !== "pending") setIssueOpen(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report an issue</DialogTitle>
+            <DialogDescription>
+              Tell us what went wrong so our support team can investigate.
+            </DialogDescription>
+          </DialogHeader>
+          {issueStatus === "success" ? (
+            <div className="space-y-4">
+              <p
+                className="rounded-lg border border-status-approved/30 bg-status-approved/10 px-3 py-2 text-sm text-text-primary"
+                role="status"
+              >
+                Your issue was submitted successfully. Thanks for letting us
+                know.
+              </p>
+              <DialogFooter>
+                <Button type="button" onClick={() => setIssueOpen(false)}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form className="space-y-4" onSubmit={submitIssue}>
+              <div className="space-y-2">
+                <Label htmlFor="support-issue-message">What happened?</Label>
+                <Textarea
+                  id="support-issue-message"
+                  required
+                  minLength={10}
+                  placeholder="Describe the issue in at least 10 characters."
+                  value={issueMessage}
+                  disabled={issueStatus === "pending"}
+                  onChange={(event) => setIssueMessage(event.target.value)}
+                />
+              </div>
+              {issueStatus === "error" && (
+                <p
+                  className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  role="alert"
+                >
+                  {issueError}
+                </p>
+              )}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={issueStatus === "pending"}
+                  onClick={() => setIssueOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={issueStatus === "pending"}>
+                  {issueStatus === "pending" ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Submitting…
+                    </>
+                  ) : (
+                    "Submit report"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

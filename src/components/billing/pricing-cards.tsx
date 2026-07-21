@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { PLANS, type Plan } from "@/lib/plans";
 import { getEffectivePlanKey } from "@/lib/billing";
+import { api, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 import { useBillingStatus } from "@/hooks/useBillingStatus";
 import { useRazorpayCheckout } from "@/hooks/useRazorpayCheckout";
@@ -13,6 +13,7 @@ import { SubscriptionConfirmDialog } from "@/components/billing/subscription-con
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -128,9 +129,54 @@ export function PricingCards({ className }: { className?: string }) {
   } = useRazorpayCheckout({ redirectTo: "/dashboard" });
 
   const [salesOpen, setSalesOpen] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [message, setMessage] = useState("");
+  const [salesStatus, setSalesStatus] = useState<
+    "idle" | "pending" | "error" | "success"
+  >("idle");
+  const [salesError, setSalesError] = useState("");
 
   const currentPlanKey = getEffectivePlanKey(billingQuery.data);
+
+  const openSalesDialog = () => {
+    setName("");
+    setEmail("");
+    setCompanyName("");
+    setMessage("");
+    setSalesError("");
+    setSalesStatus("idle");
+    setSalesOpen(true);
+  };
+
+  const submitSalesEnquiry = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setSalesStatus("pending");
+    setSalesError("");
+
+    try {
+      await api.public.createContactEnquiry({
+        name: name.trim(),
+        email: email.trim(),
+        ...(companyName.trim()
+          ? { company_name: companyName.trim() }
+          : {}),
+        message: message.trim(),
+        plan_interest: "business",
+      });
+      setSalesStatus("success");
+    } catch (error) {
+      setSalesError(
+        error instanceof ApiError
+          ? error.message
+          : "We couldn't send your request. Please try again.",
+      );
+      setSalesStatus("error");
+    }
+  };
 
   return (
     <>
@@ -196,7 +242,7 @@ export function PricingCards({ className }: { className?: string }) {
                   upgrading={upgrading}
                   checkoutUnavailable={checkoutUnavailable}
                   onUpgradePro={() => openCheckout("pro")}
-                  onContactSales={() => setSalesOpen(true)}
+                  onContactSales={openSalesDialog}
                 />
               )}
             </div>
@@ -216,43 +262,106 @@ export function PricingCards({ className }: { className?: string }) {
           <DialogHeader>
             <DialogTitle>Contact Sales</DialogTitle>
             <DialogDescription>
-              Business is sold with a dedicated account manager. Leave your
-              email and we&apos;ll reach out about custom pricing and onboarding.
+              Tell us about your needs and we&apos;ll help with custom pricing
+              and onboarding.
             </DialogDescription>
           </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              console.log("[contact-sales]", { email, plan: "business" });
-              toast.success("Thanks — our team will be in touch.");
-              setEmail("");
-              setSalesOpen(false);
-            }}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="sales-email">Work email</Label>
-              <Input
-                id="sales-email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSalesOpen(false)}
+          {salesStatus === "success" ? (
+            <div className="space-y-4">
+              <p
+                className="rounded-lg border border-status-approved/30 bg-status-approved/10 px-3 py-2 text-sm text-text-primary"
+                role="status"
               >
-                Cancel
-              </Button>
-              <Button type="submit">Request contact</Button>
-            </DialogFooter>
-          </form>
+                Thanks for contacting us. Our sales team will respond within 1
+                business day.
+              </p>
+              <DialogFooter>
+                <Button type="button" onClick={() => setSalesOpen(false)}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form className="space-y-4" onSubmit={submitSalesEnquiry}>
+              <div className="space-y-2">
+                <Label htmlFor="sales-name">Name</Label>
+                <Input
+                  id="sales-name"
+                  required
+                  minLength={2}
+                  maxLength={255}
+                  autoComplete="name"
+                  value={name}
+                  disabled={salesStatus === "pending"}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sales-email">Work email</Label>
+                <Input
+                  id="sales-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  disabled={salesStatus === "pending"}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sales-company">Company (optional)</Label>
+                <Input
+                  id="sales-company"
+                  maxLength={255}
+                  autoComplete="organization"
+                  value={companyName}
+                  disabled={salesStatus === "pending"}
+                  onChange={(event) => setCompanyName(event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sales-message">How can we help?</Label>
+                <Textarea
+                  id="sales-message"
+                  required
+                  minLength={10}
+                  maxLength={5000}
+                  value={message}
+                  disabled={salesStatus === "pending"}
+                  onChange={(event) => setMessage(event.target.value)}
+                />
+              </div>
+              {salesStatus === "error" && (
+                <p
+                  className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  role="alert"
+                >
+                  {salesError}
+                </p>
+              )}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={salesStatus === "pending"}
+                  onClick={() => setSalesOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={salesStatus === "pending"}>
+                  {salesStatus === "pending" ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    "Request contact"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </>

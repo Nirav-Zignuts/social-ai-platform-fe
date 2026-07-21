@@ -34,10 +34,13 @@ import type {
   BillingStatus,
   BillingTransactionsPage,
   BillingTransactionsQuery,
+  ContactEnquiryCreate,
+  SupportIssueCreate,
 } from "./types";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://social-ai-platform-3kb9.onrender.com/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api/v1";
+const API_ORIGIN = API_BASE.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
 
 export function getGoogleLoginUrl(options?: { postAuthRedirect?: string }): string {
   const loginUrl = new URL("/login", typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
@@ -243,7 +246,7 @@ export async function refreshAccessToken(): Promise<string> {
 }
 
 async function getValidAccessToken(): Promise<string | null> {
-  let accessToken = getAccessToken();
+  const accessToken = getAccessToken();
   const refreshToken = getRefreshToken();
 
   // Prefer a still-valid access token without requiring refresh.
@@ -266,6 +269,7 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   auth?: boolean;
   formData?: FormData;
+  apiOrigin?: boolean;
   _retry?: boolean;
 };
 
@@ -303,8 +307,15 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
-  const { body, auth = true, formData, headers, _retry = false, ...rest } =
-    options;
+  const {
+    body,
+    auth = true,
+    formData,
+    headers,
+    apiOrigin = false,
+    _retry = false,
+    ...rest
+  } = options;
 
   const requestHeaders: HeadersInit = {
     ...(headers ?? {}),
@@ -324,7 +335,7 @@ export async function apiRequest<T>(
     (requestHeaders as Record<string, string>).Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${apiOrigin ? API_ORIGIN : API_BASE}${path}`, {
     ...rest,
     headers: requestHeaders,
     body: formData ?? (body !== undefined ? JSON.stringify(body) : undefined),
@@ -382,6 +393,24 @@ export async function connectInstagram(workspaceId: string): Promise<void> {
 }
 
 export const api = {
+  public: {
+    createContactEnquiry: (payload: ContactEnquiryCreate) =>
+      apiRequest<unknown>("/public/contact-enquiries", {
+        method: "POST",
+        body: payload,
+        auth: false,
+        apiOrigin: true,
+      }),
+  },
+
+  support: {
+    createIssue: (payload: SupportIssueCreate) =>
+      apiRequest<unknown>("/support/issues", {
+        method: "POST",
+        body: payload,
+      }),
+  },
+
   auth: {
     register: (payload: {
       full_name: string;

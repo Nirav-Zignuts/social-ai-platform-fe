@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { hasStoredSession } from "@/lib/api-client";
@@ -15,22 +15,33 @@ const PUBLIC_ROUTES = [
   "/instagram/callback-landing",
 ];
 
+const ADMIN_HIDDEN_ROUTE_FAMILY =
+  "/ops-e246f9e101aae83bee9e9600";
+
+function subscribeToNothing() {
+  return () => undefined;
+}
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
   const isPublic =
     pathname === "/" ||
     PUBLIC_ROUTES.some(
       (route) => route !== "/" && pathname.startsWith(route),
     );
+  // Admin routes have a separate token and enforce their own nested guard.
+  // Let the hidden gateway and any nearby unknown paths render independently.
+  // Unknown paths then reach Next's normal 404 instead of the main-app login.
+  const isAdminGateway = pathname.startsWith(ADMIN_HIDDEN_ROUTE_FAMILY);
   const hasSession = mounted && hasStoredSession();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!mounted) return;
@@ -48,7 +59,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (isPublic) return;
+    if (isPublic || isAdminGateway) return;
 
     if (hasSession && isLoading) return;
 
@@ -60,13 +71,14 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     isLoading,
     isPublic,
+    isAdminGateway,
     hasSession,
     pathname,
     router,
   ]);
 
   // Public routes render immediately — no auth bootstrap blocker.
-  if (isPublic) {
+  if (isPublic || isAdminGateway) {
     return <>{children}</>;
   }
 

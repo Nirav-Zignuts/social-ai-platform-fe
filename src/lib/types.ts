@@ -15,6 +15,18 @@ export interface AuthTokens {
   token_type: string;
 }
 
+export interface ContactEnquiryCreate {
+  name: string;
+  email: string;
+  company_name?: string;
+  message: string;
+  plan_interest: "business";
+}
+
+export interface SupportIssueCreate {
+  message: string;
+}
+
 export type OnboardingStatus =
   | "workspace_created"
   | "profile_added"
