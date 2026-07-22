@@ -54,10 +54,10 @@ export function AdminShell({
             <ShieldCheck className="size-4" />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-text-primary">
+            <span className="block text-base font-semibold text-text-primary">
               Internal Operations
             </span>
-            <span className="block text-[10px] uppercase tracking-[0.18em] text-text-secondary">
+            <span className="block text-xs uppercase tracking-[0.14em] text-text-secondary">
               Admin gateway
             </span>
           </span>
@@ -86,7 +86,7 @@ export function AdminShell({
               href={item.href}
               onClick={() => setMobileNavOpen(false)}
               className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-base transition-colors",
                 active
                   ? "bg-bg-surface-hover font-medium text-text-primary"
                   : "text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary",
@@ -150,10 +150,10 @@ export function AdminShell({
             <Menu className="size-5" />
           </button>
           <Gauge className="hidden size-4 text-accent sm:block" />
-          <p className="text-sm font-medium text-text-primary">
+          <p className="text-base font-medium text-text-primary">
             Operations Console
           </p>
-          <span className="ml-auto rounded-full border border-status-pending/30 bg-status-pending/10 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-status-pending">
+          <span className="ml-auto rounded-full border border-status-pending/30 bg-status-pending/10 px-2.5 py-1 text-xs font-medium uppercase tracking-wider text-status-pending">
             Internal
           </span>
         </header>

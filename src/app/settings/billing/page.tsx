@@ -83,9 +83,11 @@ export default function BillingSettingsPage() {
   const usageRatio =
     limit == null || limit <= 0 ? 0 : Math.min(1, workspaceCount / limit);
   const periodLabel = formatBillingPeriodDate(data?.current_period_end);
-  // Match backend: any paid Razorpay sub that isn't already cancelled/expired.
+  // Only paid, live plans can cancel — never show on Free.
   const canCancel = Boolean(
-    data?.razorpay_subscription_id &&
+    paidAccess &&
+      data?.plan.plan_key !== "free" &&
+      data?.razorpay_subscription_id &&
       !data.cancel_at_period_end &&
       data.status !== "cancelled" &&
       data.status !== "expired",

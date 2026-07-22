@@ -80,7 +80,7 @@ export default function AdminUsersPage() {
                     >
                       {user.full_name || "Unnamed user"}
                     </Link>
-                    <p className="text-xs text-text-secondary">{user.email}</p>
+                    <p className="mt-1 text-sm text-text-secondary">{user.email}</p>
                   </td>
                   <td className={tdClass}>
                     <StatusPill value={user.status} />

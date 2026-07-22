@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   AdminPage,
+  DefinitionList,
+  EmptyHint,
   ErrorState,
   LoadingState,
   Panel,
@@ -26,7 +29,7 @@ export default function AdminUserDetailPage() {
   const queryClient = useQueryClient();
   const [planOpen, setPlanOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [plan, setSelectedPlan] = useState("free");
+  const [plan, setSelectedPlan] = useState("pro");
   const [status, setStatus] = useState("active");
 
   const query = useQuery({
@@ -39,7 +42,8 @@ export default function AdminUserDetailPage() {
     queryClient.invalidateQueries({ queryKey: ["admin", "user", userId] });
 
   const planMutation = useMutation({
-    mutationFn: (reason: string) => adminApi.users.setPlan(userId, plan, reason),
+    mutationFn: (reason: string) =>
+      adminApi.users.setPlan(userId, plan, reason),
     onSuccess: async () => {
       setPlanOpen(false);
       await refresh();
@@ -64,7 +68,11 @@ export default function AdminUserDetailPage() {
   });
 
   if (query.isLoading) {
-    return <AdminPage title="User detail"><LoadingState /></AdminPage>;
+    return (
+      <AdminPage title="User detail">
+        <LoadingState />
+      </AdminPage>
+    );
   }
   if (query.isError || !query.data) {
     return (
@@ -75,15 +83,16 @@ export default function AdminUserDetailPage() {
   }
 
   const { user, subscription, workspaces } = query.data;
+
   return (
     <AdminPage
       title={user.full_name || user.email}
       description={user.email}
+      backHref={`${PORTAL_ROOT}/users`}
+      backLabel="Back to users"
       actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setPlanOpen(true)}>
-            Change plan
-          </Button>
+        <>
+          <Button onClick={() => setPlanOpen(true)}>Change plan</Button>
           <Button
             variant="outline"
             disabled={!subscription}
@@ -91,68 +100,117 @@ export default function AdminUserDetailPage() {
           >
             Force status
           </Button>
-        </div>
+        </>
       }
     >
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Account information">
-          <dl className="grid grid-cols-2 gap-4 text-sm">
-            <Field label="Status"><StatusPill value={user.status} /></Field>
-            <Field label="User ID">{user.id}</Field>
-            <Field label="Email verified">{formatDate(user.email_verified_at)}</Field>
-            <Field label="Last login">{formatDate(user.last_login_at)}</Field>
-            <Field label="Created">{formatDate(user.created_at)}</Field>
-          </dl>
+        <Panel title="Account" description="Identity and activity">
+          <DefinitionList
+            items={[
+              {
+                label: "Status",
+                value: <StatusPill value={user.status} />,
+              },
+              {
+                label: "Signed up",
+                value: formatDate(user.created_at),
+              },
+              {
+                label: "Email verified",
+                value: formatDate(user.email_verified_at),
+              },
+              {
+                label: "Last login",
+                value: formatDate(user.last_login_at),
+              },
+            ]}
+          />
         </Panel>
 
-        <Panel title="Subscription">
+        <Panel
+          title="Subscription"
+          description="Current billing entitlement"
+          actions={
+            subscription ? (
+              <StatusPill value={subscription.status} />
+            ) : undefined
+          }
+        >
           {subscription ? (
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <Field label="Plan">{subscription.plan_name} ({subscription.plan_key})</Field>
-              <Field label="Status"><StatusPill value={subscription.status} /></Field>
-              <Field label="Workspace limit">{subscription.workspace_limit}</Field>
-              <Field label="Period end">{formatDate(subscription.current_period_end)}</Field>
-              <Field label="Cancel at period end">
-                {subscription.cancel_at_period_end ? "Yes" : "No"}
-              </Field>
-              <Field label="Razorpay ID">
-                {subscription.razorpay_subscription_id ?? "—"}
-              </Field>
-            </dl>
+            <DefinitionList
+              items={[
+                {
+                  label: "Plan",
+                  value: (
+                    <span className="font-medium">
+                      {subscription.plan_name}
+                      <span className="ml-2 text-sm font-normal text-text-secondary">
+                        ({subscription.plan_key})
+                      </span>
+                    </span>
+                  ),
+                },
+                {
+                  label: "Workspace limit",
+                  value:
+                    subscription.workspace_limit == null
+                      ? "Unlimited"
+                      : String(subscription.workspace_limit),
+                },
+                {
+                  label: "Period ends",
+                  value: formatDate(subscription.current_period_end),
+                },
+                {
+                  label: "Cancels at period end",
+                  value: subscription.cancel_at_period_end ? "Yes" : "No",
+                },
+              ]}
+            />
           ) : (
-            <p className="text-sm text-text-secondary">No subscription exists.</p>
+            <EmptyHint>No subscription on this account yet.</EmptyHint>
           )}
         </Panel>
       </div>
 
-      <Panel title={`Workspaces (${workspaces.length})`}>
-        <div className="grid gap-3 md:grid-cols-2">
-          {workspaces.map((workspace) => (
-            <Link
-              key={workspace.id}
-              href={`${PORTAL_ROOT}/workspaces/${workspace.id}`}
-              className="rounded-lg border border-border-subtle p-4 hover:bg-bg-surface-hover"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium text-accent">{workspace.name}</span>
-                <StatusPill value={workspace.status} />
-              </div>
-              <p className="mt-2 text-xs text-text-secondary">
-                {workspace.timezone} · {workspace.onboarding_status}
-              </p>
-            </Link>
-          ))}
-          {!workspaces.length ? (
-            <p className="text-sm text-text-secondary">No workspaces.</p>
-          ) : null}
-        </div>
+      <Panel
+        title="Workspaces"
+        description={`${workspaces.length} workspace${workspaces.length === 1 ? "" : "s"} owned by this user`}
+      >
+        {workspaces.length ? (
+          <ul className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
+            {workspaces.map((workspace) => (
+              <li key={workspace.id}>
+                <Link
+                  href={`${PORTAL_ROOT}/workspaces/${workspace.id}`}
+                  className="flex items-center gap-4 px-4 py-4 transition-colors hover:bg-bg-surface-hover/60 sm:px-5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-medium text-text-primary">
+                      {workspace.name}
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      Onboarding: {workspace.onboarding_status.replaceAll("_", " ")}
+                      {" · "}
+                      {workspace.timezone}
+                    </p>
+                  </div>
+                  <StatusPill value={workspace.status} />
+                  <ChevronRight className="size-4 shrink-0 text-text-secondary" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyHint>This user has no workspaces.</EmptyHint>
+        )}
       </Panel>
 
       <ReasonDialog
         open={planOpen}
         onOpenChange={setPlanOpen}
         title="Change user plan"
-        description="This overrides billing and synchronizes workspace entitlements."
+        description="This overrides billing and synchronizes workspace entitlements. A reason is required for the audit log."
         confirmLabel="Confirm plan change"
         pending={planMutation.isPending}
         onConfirm={(reason) => planMutation.mutate(reason)}
@@ -169,7 +227,7 @@ export default function AdminUserDetailPage() {
         open={statusOpen}
         onOpenChange={setStatusOpen}
         title="Force subscription status"
-        description="Use only when the billing provider state must be overridden."
+        description="Emergency billing override. Use only when the provider state must be corrected manually."
         confirmLabel="Force status"
         pending={forceStatus.isPending}
         onConfirm={(reason) => forceStatus.mutate(reason)}
@@ -186,15 +244,6 @@ export default function AdminUserDetailPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-xs text-text-secondary">{label}</dt>
-      <dd className="mt-1 break-words">{children}</dd>
-    </div>
-  );
-}
-
 function SelectField({
   label,
   value,
@@ -207,15 +256,17 @@ function SelectField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="space-y-2 text-sm">
-      <span>{label}</span>
+    <label className="block space-y-2 text-base">
+      <span className="font-medium text-text-primary">{label}</span>
       <select
-        className="h-9 w-full rounded-lg border border-border-subtle bg-bg-base px-3"
+        className="flex h-10 w-full rounded-lg border border-border-subtle bg-bg-base px-3 text-base text-text-primary outline-none focus-visible:border-accent focus-visible:ring-1 focus-visible:ring-accent"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>
+            {option}
+          </option>
         ))}
       </select>
     </label>
