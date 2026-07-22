@@ -119,14 +119,35 @@ export function hasStoredSession(): boolean {
   return Boolean(getAccessToken() || getRefreshToken());
 }
 
-export function setTokens(tokens: AuthTokens) {
-  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
-}
-
 export function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+/**
+ * Blocks authenticated requests + token refresh while logout / expiry is in
+ * progress so in-flight /me 401 handlers cannot revive the session.
+ */
+let authLifecycleSuspended = false;
+let refreshPromise: Promise<string> | null = null;
+
+export function isAuthLifecycleSuspended(): boolean {
+  return authLifecycleSuspended;
+}
+
+export function suspendAuthLifecycle(): void {
+  authLifecycleSuspended = true;
+  refreshPromise = null;
+}
+
+export function resumeAuthLifecycle(): void {
+  authLifecycleSuspended = false;
+}
+
+export function setTokens(tokens: AuthTokens) {
+  resumeAuthLifecycle();
+  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
+  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
 }
 
 /** Best-effort server logout using a captured access token (tokens may already be cleared). */
@@ -160,11 +181,10 @@ function notifySessionExpired() {
 }
 
 function expireSession() {
+  suspendAuthLifecycle();
   clearTokens();
   notifySessionExpired();
 }
-
-let refreshPromise: Promise<string> | null = null;
 
 /** Decode JWT payload without verification — used only for expiry check. */
 function getTokenExpiry(token: string): number | null {
@@ -185,6 +205,10 @@ function isAccessTokenExpired(token: string, bufferSeconds = 30): boolean {
 }
 
 async function callRefreshEndpoint(refreshToken: string): Promise<string> {
+  if (authLifecycleSuspended) {
+    throw new SessionExpiredError();
+  }
+
   const response = await fetch(
     `${API_BASE}/auth/refresh?refresh_token=${encodeURIComponent(refreshToken)}`,
     { method: "POST" },
@@ -211,7 +235,14 @@ async function callRefreshEndpoint(refreshToken: string): Promise<string> {
       typeof (parsed as { message: unknown }).message === "string"
         ? (parsed as { message: string }).message
         : "Refresh token invalid or expired";
+    clearTokens();
     throw new SessionExpiredError(message);
+  }
+
+  // Logout may have suspended auth while this request was in flight.
+  if (authLifecycleSuspended) {
+    clearTokens();
+    throw new SessionExpiredError();
   }
 
   const envelope = parsed as SuccessEnvelope<{
@@ -221,6 +252,7 @@ async function callRefreshEndpoint(refreshToken: string): Promise<string> {
 
   const accessToken = envelope.data?.access_token;
   if (!accessToken) {
+    clearTokens();
     throw new SessionExpiredError("No access token returned from refresh");
   }
 
@@ -230,6 +262,11 @@ async function callRefreshEndpoint(refreshToken: string): Promise<string> {
 
 /** Refresh access token using stored refresh_token. Dedupes concurrent calls. */
 export async function refreshAccessToken(): Promise<string> {
+  if (authLifecycleSuspended) {
+    clearTokens();
+    throw new SessionExpiredError();
+  }
+
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     expireSession();
@@ -246,6 +283,10 @@ export async function refreshAccessToken(): Promise<string> {
 }
 
 async function getValidAccessToken(): Promise<string | null> {
+  if (authLifecycleSuspended) {
+    return null;
+  }
+
   const accessToken = getAccessToken();
   const refreshToken = getRefreshToken();
 
@@ -344,12 +385,13 @@ export async function apiRequest<T>(
   const parsed = await parseResponse(response);
   const errorCode = getErrorCode(parsed, response);
 
-  // On 401, attempt one refresh + retry (unless this is already a retry or refresh call)
+  // On 401, attempt one refresh + retry (unless logout/expiry already started).
   if (
     auth &&
     errorCode === 401 &&
     !_retry &&
     path !== "/auth/refresh" &&
+    !authLifecycleSuspended &&
     getRefreshToken()
   ) {
     try {
@@ -359,6 +401,11 @@ export async function apiRequest<T>(
       expireSession();
       throw new SessionExpiredError();
     }
+  }
+
+  if (auth && errorCode === 401) {
+    expireSession();
+    throw new SessionExpiredError();
   }
 
   if (typeof parsed === "object" && parsed !== null && isErrorEnvelope(parsed)) {

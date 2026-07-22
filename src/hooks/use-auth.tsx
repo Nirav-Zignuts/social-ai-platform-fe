@@ -20,6 +20,7 @@ import {
   revokeServerSession,
   SessionExpiredError,
   setTokens,
+  suspendAuthLifecycle,
 } from "@/lib/api-client";
 import type { AuthTokens, User } from "@/lib/types";
 
@@ -42,9 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionResolved, setSessionResolved] = useState(false);
 
   const clearLocalSession = useCallback(() => {
+    suspendAuthLifecycle();
     clearTokens();
     setEnabled(false);
     queryClient.setQueryData(["auth", "me"], null);
+    void queryClient.cancelQueries({ queryKey: ["auth", "me"] });
     queryClient.clear();
   }, [queryClient]);
 
@@ -68,10 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["auth", "me"],
     queryFn: () => api.auth.me(),
     enabled,
-    retry: (failureCount, err) => {
-      if (err instanceof SessionExpiredError) return false;
-      return failureCount < 1;
-    },
+    retry: false,
+    refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -101,8 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    // Capture token first, then clear local session immediately so UI / guards
-    // cannot keep using a half-logged-out state.
+    // Suspend refresh/retry immediately, then clear local session so in-flight
+    // /me 401 handlers cannot call /auth/refresh and loop.
     const accessToken = getAccessToken();
     clearLocalSession();
     router.replace("/login");
